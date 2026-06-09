@@ -24,6 +24,105 @@ let currentServer = null; // 선택된 서버 메타데이터 { id, name, owner 
 let currentUser = null;   // 현재 로그인된 사용자 세션 데이터
 let syncIntervalId = null; // 백그라운드 폴링 타이머 ID
 
+// 상점 아이템 데이터베이스 정의
+const SHOP_ITEMS = [
+    { id: 'item_crown', name: '👑 황금 왕관', desc: '머리 위에 반짝이는 황금 왕관을 씁니다.', category: 'accessory', cost: 200 },
+    { id: 'item_glasses', name: '😎 멋쟁이 선글라스', desc: '눈 위치에 세련된 검은 선글라스를 착용합니다.', category: 'accessory', cost: 100 },
+    { id: 'item_halo', name: '😇 천사 링', desc: '머리 위에 둥둥 떠 있는 은은한 천사 링을 답니다.', category: 'accessory', cost: 250 },
+    { id: 'item_balloon', name: '🎈 빨간 풍선', desc: '캐릭터 곁에 둥실 따라다니는 풍선 끈을 잡습니다.', category: 'accessory', cost: 150 },
+    { id: 'item_shoes', name: '👟 러닝 슈즈', desc: '이동 속도가 대폭 빨라집니다. (기본 속도 120 -> 180)', category: 'upgrade', cost: 300 },
+    { id: 'item_trail_rainbow', name: '✨ 무지개 흔적', desc: '달릴 때마다 발밑에 아름다운 무지개색 불꽃을 남깁니다.', category: 'upgrade', cost: 400 }
+];
+
+// 기본 NPC 데이터 (최초 로드 시 적용)
+const DEFAULT_NPCS = [
+    {
+        id: 'npc_default_1',
+        name: '경비 아저씨',
+        role: '온누리 아파트 지킴이',
+        spriteStyle: {
+            gender: 'male',
+            skinColor: '#ffd59a',
+            hairColor: '#455a64',
+            outfitColor: '#1a237e'
+        },
+        dialogues: [
+            "허허, 안녕들 하신가! 오늘도 활기찬 하루군.",
+            "이 동네를 순찰한 지도 벌써 10년이 다 되어가는구만.",
+            "혹시 놀이터 옆길에서 쓰레기를 보면 줍는 착한 학생이 되어주렴!"
+        ],
+        mapX: 20,
+        mapY: 18,
+        createdAt: new Date().toISOString()
+    },
+    {
+        id: 'npc_default_2',
+        name: '붕어빵 사장님',
+        role: '동네 최고의 간식 요리사',
+        spriteStyle: {
+            gender: 'female',
+            skinColor: '#ffdbac',
+            hairColor: '#3e2723',
+            outfitColor: '#d84315'
+        },
+        dialogues: [
+            "어서 와요! 방금 구운 따끈따끈한 황금 붕어빵이랍니다.",
+            "우리 동네 애들은 슈크림보다 팥 붕어빵을 더 좋아하더라고.",
+            "추운 겨울이 아니어도 붕어빵은 언제나 사랑받지, 호호!"
+        ],
+        mapX: 28,
+        mapY: 35,
+        createdAt: new Date().toISOString()
+    },
+    {
+        id: 'npc_default_3',
+        name: '담임 선생님',
+        role: '우리동네 초등학교 교사',
+        spriteStyle: {
+            gender: 'female',
+            skinColor: '#f1c27d',
+            hairColor: '#5c4033',
+            outfitColor: '#4caf50'
+        },
+        dialogues: [
+            "오늘 배운 내용은 잊지 않고 복습하고 있나요?",
+            "공부도 중요하지만 친구들과 사이좋게 지내는 것도 중요하답니다.",
+            "수업 시간에 늦지 않도록 서둘러 등교하도록 해요!"
+        ],
+        mapX: 45,
+        mapY: 20,
+        createdAt: new Date().toISOString()
+    }
+];
+
+// 기본 퀴즈 데이터
+const DEFAULT_QUIZZES = [
+    {
+        id: 'quiz_default_1',
+        creator: '시스템',
+        question: '우리 동네 아파트 단지의 이름은 무엇일까요?',
+        options: ['온누리 아파트', '그린 아파트', '하늘 아파트', '강변 아파트'],
+        correctIndex: 0,
+        reward: 30
+    },
+    {
+        id: 'quiz_default_2',
+        creator: '시스템',
+        question: '붕어빵 사장님이 판매하는 가장 인기 있는 붕어빵 맛은?',
+        options: ['팥 붕어빵', '슈크림 붕어빵', '피자 붕어빵', '고구마 붕어빵'],
+        correctIndex: 0,
+        reward: 30
+    },
+    {
+        id: 'quiz_default_3',
+        creator: '시스템',
+        question: '경비 아저씨가 지키고 계신 곳은 어디일까요?',
+        options: ['아파트 입구 경비실', '초등학교 교문', '붕어빵 가게 앞', '중앙 공원 분수대'],
+        correctIndex: 0,
+        reward: 30
+    }
+];
+
 // API Queue 시스템 (시트 쓰기 요청 순차 처리 및 레이스 컨디션 차단)
 const apiQueue = [];
 let isProcessingQueue = false;
