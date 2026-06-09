@@ -1,0 +1,22 @@
+{
+  "name": "our-town-explore",
+  "version": "1.0.0",
+  "description": "동물의 숲 & 포켓몬 스타일 우리동네 탐험기",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "phaser3",
+    "rpg",
+    "retro",
+    "game"
+  ],
+  "author": "Antigravity",
+  "license": "ISC",
+  "devDependencies": {
+    "vite": "^5.2.0"
+  }
+}
