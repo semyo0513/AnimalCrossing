@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리동네 탐험기 - 동물의 숲 & 포켓몬 스타일 2D RPG</title>
+    
+    <!-- Google Fonts & Galmuri Pixel Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@2.1/Galmuri9.css">
+    
+    <!-- Custom CSS -->
+    
+    <!-- Phaser 3 CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+  <link rel="stylesheet" crossorigin href="assets/index-DRWaIOZG.css">
+</head>
+<body>
+    <!-- 1. 로그인/회원가입 오버레이 -->
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-box">
+            <div class="login-header">
+                <span class="pixel-icon">🌳</span>
+                <h1>우리동네 탐험기</h1>
+                <p>동네 사람들을 만나고 퀴즈를 풀며 탐험하세요!</p>
+            </div>
+            
+            <!-- 1단계: 인증 패널 -->
+            <div id="auth-panel">
+                <div class="login-tabs">
+                    <button id="tab-login" class="login-tab active">로그인</button>
+                    <button id="tab-register" class="login-tab">회원가입</button>
+                </div>
+
+                <!-- 로그인 폼 -->
+                <form id="form-login" class="login-form">
+                    <div class="control-group">
+                        <label for="login-username">닉네임</label>
+                        <input type="text" id="login-username" placeholder="닉네임을 입력하세요" required maxlength="10">
+                    </div>
+                    <div class="control-group">
+                        <label for="login-password">비밀번호</label>
+                        <input type="password" id="login-password" placeholder="비밀번호 입력" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">다음 단계로 ➡️</button>
+                </form>
+
+                <!-- 회원가입 폼 -->
+                <form id="form-register" class="login-form hidden">
+                    <div class="control-group">
+                        <label for="register-username">닉네임</label>
+                        <input type="text" id="register-username" placeholder="한글/영문 닉네임 (최대 10자)" required maxlength="10">
+                        <span class="help-text">※ 교사로 활동하려면 '교사-'로 시작해주세요. (예: 교사-홍길동)</span>
+                    </div>
+                    <div class="control-group">
+                        <label for="register-password">비밀번호</label>
+                        <input type="password" id="register-password" placeholder="비밀번호 설정" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">이웃 계정 가입 완료 🏡</button>
+                </form>
+            </div>
+
+            <!-- 2단계: 서버 선택 및 개설 패널 (로그인 성공 후 노출) -->
+            <div id="server-panel" class="hidden" style="margin-top: 15px; text-align: left;">
+                <h2 style="font-size: 16px; margin-bottom: 10px; color: var(--primary); font-family: Galmuri9, monospace;">🌐 마을 서버 선택</h2>
+                <p id="server-welcome-msg" style="font-size: 12px; color: var(--text-secondary); margin-bottom: 15px;">-님, 환영합니다!</p>
+                
+                <div class="control-group" style="margin-bottom: 15px;">
+                    <label for="server-select">접속할 서버 목록</label>
+                    <select id="server-select" class="form-select">
+                        <option value="">-- 접속할 서버를 선택하세요 --</option>
+                    </select>
+                </div>
+
+                <!-- 교사용 서버 개설 영역 -->
+                <div id="teacher-create-server-section" class="hidden" style="border-top: 1px solid var(--border-glass); padding-top: 15px; margin-top: 15px; margin-bottom: 15px;">
+                    <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display:block; margin-bottom: 6px;">➕ 새로운 서버 개설 (교사 전용)</label>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="new-server-name" placeholder="예: 2학년 3반 마을" maxlength="20" style="flex:1;">
+                        <button type="button" id="btn-create-server" class="btn btn-warning btn-sm" style="flex-shrink:0;">개설하기</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap: 10px; margin-top: 20px;">
+                    <button type="button" id="btn-back-to-auth" class="btn btn-secondary" style="flex:1;">이전으로</button>
+                    <button type="button" id="btn-connect-server" class="btn btn-primary" style="flex:2;">마을 탐험 입장 🚶</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메인 앱 인터페이스 -->
+    <div id="app" class="hidden">
+        <!-- 메인 헤더 -->
+        <header class="main-header">
+            <div class="logo">
+                <span class="pixel-icon">🌲</span>
+                <h1>우리동네 탐험기</h1>
+                <span class="badge">Retro RPG</span>
+            </div>
+            
+            <!-- 사용자 HUD -->
+            <div id="user-hud" class="user-hud">
+                <span class="hud-server" style="background: rgba(245, 158, 11, 0.1); color: var(--warning); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; border: 1px solid rgba(245, 158, 11, 0.2); display: inline-flex; align-items: center; gap: 4px;">🌐 <span id="hud-server-name">기본 서버</span></span>
+                <span class="hud-username">👤 <strong id="hud-user-name">-</strong>님</span>
+                <span class="hud-gold">💰 <strong id="hud-user-gold">0</strong>G</span>
+                <button id="btn-open-shop" class="btn btn-secondary btn-sm">🛍️ 상점</button>
+                <button id="btn-open-inventory" class="btn btn-secondary btn-sm">🎒 가방</button>
+                <button id="btn-open-quiz-manager" class="btn btn-secondary btn-sm">❓ 퀴즈</button>
+                <!-- 교사용 관리자 패널 버튼 -->
+                <button id="btn-open-admin" class="btn btn-warning btn-sm hidden">⚙️ 관리자 패널</button>
+                <button id="btn-logout" class="btn btn-danger btn-sm">🚪 로그아웃</button>
+            </div>
+            
+            <div class="controls-guide">
+                <span>⌨️ WASD/방향키 이동</span>
+                <span>💬 Space 대화</span>
+            </div>
+        </header>
+
+        <!-- 메인 컨텐츠 영역 -->
+        <main class="game-container">
+            <!-- 좌측: 게임 영역 -->
+            <div class="game-screen-wrapper">
+                <div id="game-canvas-container"></div>
+                
+                <!-- 게임 내 대화 상자 (HTML Overlay) -->
+                <div id="dialogue-box" class="hidden">
+                    <div class="dialogue-avatar">
+                        <canvas id="dialogue-avatar-canvas" width="64" height="64"></canvas>
+                    </div>
+                    <div class="dialogue-content">
+                        <div class="dialogue-header">
+                            <span class="npc-name">경비 아저씨</span>
+                            <span class="npc-role">아파트 보안관</span>
+                        </div>
+                        <p class="dialogue-text">안녕하세요! 우리 동네에 오신 것을 환영합니다.</p>
+                    </div>
+                    <div class="dialogue-next">▼</div>
+                </div>
+
+                <!-- 터치용 모바일 조이스틱 -->
+                <div id="mobile-controls" class="hidden">
+                    <div id="joystick-base">
+                        <div id="joystick-thumb"></div>
+                    </div>
+                    <button id="action-button">Talk</button>
+                </div>
+            </div>
+
+            <!-- 우측: 사이드바 -->
+            <aside class="sidebar">
+                <!-- 1. 월드맵 영역 -->
+                <section class="panel world-map-panel">
+                    <div class="panel-header">
+                        <h2>📍 우리동네 지도</h2>
+                        <span class="map-coordinates" id="current-coords">X: 0, Y: 0</span>
+                    </div>
+                    <div class="map-viewport">
+                        <div id="town-minimap">
+                            <canvas id="minimap-canvas" width="300" height="300"></canvas>
+                        </div>
+                    </div>
+                    <div class="map-instructions">
+                        지도를 누르면 해당 좌표로 순간이동합니다.
+                    </div>
+                </section>
+
+                <!-- 2. NPC 리스트 영역 -->
+                <section class="panel npc-list-panel">
+                    <div class="panel-header">
+                        <h2>👥 동네 사람들 (<span id="npc-count">0</span>명)</h2>
+                        <button id="btn-open-creator" class="btn btn-primary btn-sm">➕ 인물 등록</button>
+                    </div>
+                    <div class="npc-list-container">
+                        <div id="npc-list-empty" class="empty-state">
+                            등록된 우리동네 이웃이 없습니다.<br>
+                            새로운 인물을 등록해보세요!
+                        </div>
+                        <ul id="npc-active-list" class="npc-list"></ul>
+                    </div>
+                </section>
+            </aside>
+        </main>
+
+        <!-- NPC 등록 모달 -->
+        <div id="creator-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>우리동네 인물(NPC) 등록 <span class="gold-hint">(완료 시 +100G 지급)</span></h2>
+                    <button id="btn-close-creator" class="btn-close">&times;</button>
+                </div>
+                
+                <form id="npc-creation-form" class="creator-form">
+                    <div class="form-columns">
+                        <div class="form-column avatar-customizer">
+                            <div class="avatar-preview-box">
+                                <canvas id="avatar-preview-canvas" width="128" height="128"></canvas>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>성별 및 외형 스타일</label>
+                                <div class="radio-tiles">
+                                    <label class="radio-tile">
+                                        <input type="radio" name="gender" value="male" checked>
+                                        <div class="tile-content">👨 남성형</div>
+                                    </label>
+                                    <label class="radio-tile">
+                                        <input type="radio" name="gender" value="female">
+                                        <div class="tile-content">👩 여성형</div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="control-group">
+                                <label for="color-skin">피부 색상</label>
+                                <div class="color-picker-wrapper">
+                                    <input type="color" id="color-skin" value="#ffdbac">
+                                    <span class="color-value">#ffdbac</span>
+                                </div>
+                            </div>
+
+                            <div class="control-group">
+                                <label for="color-hair">머리 색상</label>
+                                <div class="color-picker-wrapper">
+                                    <input type="color" id="color-hair" value="#5d4037">
+                                    <span class="color-value">#5d4037</span>
+                                </div>
+                            </div>
+
+                            <div class="control-group">
+                                <label for="color-outfit">복장 색상</label>
+                                <div class="color-picker-wrapper">
+                                    <input type="color" id="color-outfit" value="#37474f">
+                                    <span class="color-value">#37474f</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-column basic-info">
+                            <div class="control-group">
+                                <label for="npc-name-input">이름</label>
+                                <input type="text" id="npc-name-input" placeholder="예: 붕어빵 사장님, 경비 아저씨" required maxlength="12">
+                            </div>
+
+                            <div class="control-group">
+                                <label for="npc-role-input">역할 / 한 줄 소개</label>
+                                <input type="text" id="npc-role-input" placeholder="예: 동네 마당발, 친절한 이웃" required maxlength="20">
+                            </div>
+
+                            <div class="control-group">
+                                <label>배치 좌표 선택</label>
+                                <div class="coords-picker-ui">
+                                    <div class="coords-values">
+                                        <span>X: <strong id="picker-x">10</strong></span>
+                                        <span>Y: <strong id="picker-y">10</strong></span>
+                                    </div>
+                                    <button type="button" id="btn-use-player-pos" class="btn btn-secondary btn-sm">🚶 현재 내 위치</button>
+                                </div>
+                                <p class="help-text">게임 맵 또는 우측 지도를 클릭하여 위치를 변경할 수 있습니다.</p>
+                            </div>
+
+                            <div class="control-group">
+                                <label for="npc-dialogue-input">대화 대사 (줄바꿈으로 구분)</label>
+                                <textarea id="npc-dialogue-input" rows="4" placeholder="말을 걸었을 때 보여줄 대사를 입력하세요." required></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" id="btn-cancel-creator" class="btn btn-secondary">취소</button>
+                        <button type="submit" class="btn btn-primary btn-submit">이웃 등록 완료</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 3. 아이템 상점 모달 -->
+        <div id="shop-modal" class="modal-overlay hidden">
+            <div class="modal-content shop-modal-content">
+                <div class="modal-header">
+                    <h2>🛍️ 우리동네 패션 상점</h2>
+                    <button id="btn-close-shop" class="btn-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="shop-description">모은 골드로 멋진 장신구와 특수 기능을 구매해 보세요!</p>
+                    <div class="shop-items-grid" id="shop-items-grid">
+                        <!-- 아이템 목록 로딩 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. 내 가방(인벤토리) 모달 -->
+        <div id="inventory-modal" class="modal-overlay hidden">
+            <div class="modal-content inventory-modal-content">
+                <div class="modal-header">
+                    <h2>🎒 내 가방 (인벤토리)</h2>
+                    <button id="btn-close-inventory" class="btn-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="inventory-description">보유 중인 장비를 터치하여 장착하거나 장착 해제할 수 있습니다.</p>
+                    <div class="inventory-items-grid" id="inventory-items-grid">
+                        <!-- 인벤토리 목록 로딩 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. 퀴즈 관리 모달 (출제용) -->
+        <div id="quiz-modal" class="modal-overlay hidden">
+            <div class="modal-content quiz-modal-content">
+                <div class="modal-header">
+                    <h2>❓ 우리동네 퀴즈 관리자</h2>
+                    <button id="btn-close-quiz" class="btn-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="quiz-manager-tabs">
+                        <button id="tab-quiz-list" class="quiz-tab active">동네 퀴즈 목록</button>
+                        <button id="tab-quiz-create" class="quiz-tab">새 퀴즈 출제</button>
+                    </div>
+                    
+                    <!-- 퀴즈 목록 -->
+                    <div id="quiz-list-section" class="quiz-section">
+                        <div id="quiz-list-empty" class="empty-state">출제된 퀴즈가 없습니다.</div>
+                        <ul id="quiz-active-list" class="quiz-list-view"></ul>
+                    </div>
+
+                    <!-- 퀴즈 생성 -->
+                    <div id="quiz-create-section" class="quiz-section hidden">
+                        <form id="quiz-creation-form" class="quiz-form">
+                            <div class="control-group">
+                                <label for="quiz-question">퀴즈 질문 (우리 동네에 관한 내용 등)</label>
+                                <input type="text" id="quiz-question" placeholder="예: 분수대에 숨겨진 물건은 무엇일까요?" required>
+                            </div>
+                            <div class="quiz-options-group">
+                                <div class="control-group">
+                                    <label>1번 선택지</label>
+                                    <input type="text" class="quiz-opt" data-idx="0" placeholder="선택지 1" required>
+                                </div>
+                                <div class="control-group">
+                                    <label>2번 선택지</label>
+                                    <input type="text" class="quiz-opt" data-idx="1" placeholder="선택지 2" required>
+                                </div>
+                                <div class="control-group">
+                                    <label>3번 선택지</label>
+                                    <input type="text" class="quiz-opt" data-idx="2" placeholder="선택지 3" required>
+                                </div>
+                                <div class="control-group">
+                                    <label>4번 선택지</label>
+                                    <input type="text" class="quiz-opt" data-idx="3" placeholder="선택지 4" required>
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label for="quiz-correct">정답 선택</label>
+                                <select id="quiz-correct" class="form-select">
+                                    <option value="0">1번 선택지</option>
+                                    <option value="1">2번 선택지</option>
+                                    <option value="2">3번 선택지</option>
+                                    <option value="3">4번 선택지</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label for="quiz-reward">정답 보상 골드 (G)</label>
+                                <input type="number" id="quiz-reward" value="30" min="10" max="100" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">동네 퀴즈 출제 완료 📝</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. 퀴즈 풀기 팝업 모달 -->
+        <div id="quiz-solver-modal" class="modal-overlay hidden">
+            <div class="modal-content quiz-solver-content">
+                <div class="modal-header">
+                    <h2>❓ 이웃이 퀴즈를 출제했습니다!</h2>
+                </div>
+                <div class="modal-body">
+                    <div class="quiz-question-box">
+                        <p id="solver-question-text">질문 내용이 여기에 들어갑니다.</p>
+                        <span class="quiz-reward-badge">💰 보상: <span id="solver-reward-gold">30</span>G</span>
+                    </div>
+                    <div class="quiz-options-list" id="solver-options-list">
+                        <!-- 4지선다 버튼 4개 추가 -->
+                    </div>
+                    <div id="solver-result-msg" class="solver-result-msg hidden"></div>
+                </div>
+                <div class="modal-footer" id="solver-footer"></div>
+            </div>
+        </div>
+
+        <!-- 7. 교사 관리자 패널 모달 -->
+        <div id="admin-modal" class="modal-overlay hidden">
+            <div class="modal-content admin-modal-content">
+                <div class="modal-header">
+                    <h2>⚙️ 교사 관리자 패널</h2>
+                    <button id="btn-close-admin" class="btn-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="admin-tabs">
+                        <button id="tab-admin-students" class="admin-tab active">👩‍🎓 학생 현황 대시보드</button>
+                        <button id="tab-admin-quizzes" class="admin-tab">❓ 동네 퀴즈 관리</button>
+                        <button id="tab-admin-npcs" class="admin-tab">👥 이웃(NPC) 관리</button>
+                    </div>
+
+                    <!-- 1) 학생 대시보드 -->
+                    <div id="admin-students-section" class="admin-section">
+                        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <p class="section-desc" style="margin-bottom:0;">가입된 학생들의 실시간 학습 현황을 확인하고 보상 골드를 지급/수정합니다.</p>
+                            <button id="btn-admin-give-all-gold" class="btn btn-warning btn-sm">💰 일괄 골드 지급</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>학생 닉네임</th>
+                                        <th>보유 골드</th>
+                                        <th>보유 아이템 수</th>
+                                        <th>장착 아이템</th>
+                                        <th>퀴즈 해결 수</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-students-list">
+                                    <!-- 학생 리스트 로딩 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 2) 퀴즈 관리 -->
+                    <div id="admin-quizzes-section" class="admin-section hidden">
+                        <p class="section-desc">학생들과 교사가 등록한 동네 퀴즈 리스트를 관리합니다.</p>
+                        
+                        <div style="margin-bottom: 15px; display: flex; justify-content: flex-end;">
+                            <button id="btn-admin-add-quiz-trigger" class="btn btn-warning btn-sm">➕ 새 퀴즈 추가</button>
+                        </div>
+                        
+                        <!-- 퀴즈 추가/수정 폼 (기본 hidden) -->
+                        <div id="admin-quiz-form-section" class="hidden" style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-glass); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                            <h3 id="admin-quiz-form-title" style="font-size: 13px; color: var(--warning); margin-bottom: 12px; font-family: Galmuri9, monospace;">📝 새 퀴즈 추가</h3>
+                            <form id="admin-quiz-form" style="display:flex; flex-direction:column; gap:10px;">
+                                <input type="hidden" id="admin-quiz-edit-id" value="">
+                                <div class="control-group">
+                                    <label>질문</label>
+                                    <input type="text" id="admin-quiz-question" placeholder="예: 분수대에 숨겨진 물건은 무엇일까요?" required>
+                                </div>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                    <div class="control-group">
+                                        <label>선택지 1</label>
+                                        <input type="text" id="admin-quiz-opt-0" placeholder="선택지 1" required>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>선택지 2</label>
+                                        <input type="text" id="admin-quiz-opt-1" placeholder="선택지 2" required>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>선택지 3</label>
+                                        <input type="text" id="admin-quiz-opt-2" placeholder="선택지 3" required>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>선택지 4</label>
+                                        <input type="text" id="admin-quiz-opt-3" placeholder="선택지 4" required>
+                                    </div>
+                                </div>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                    <div class="control-group">
+                                        <label>정답 선택</label>
+                                        <select id="admin-quiz-correct" class="form-select">
+                                            <option value="0">1번 선택지</option>
+                                            <option value="1">2번 선택지</option>
+                                            <option value="2">3번 선택지</option>
+                                            <option value="3">4번 선택지</option>
+                                        </select>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>보상 골드</label>
+                                        <input type="number" id="admin-quiz-reward" value="30" min="10" max="100" required>
+                                    </div>
+                                </div>
+                                <div style="display:flex; gap:10px; justify-content: flex-end; margin-top: 5px;">
+                                    <button type="button" id="btn-admin-quiz-cancel" class="btn btn-secondary btn-sm">취소</button>
+                                    <button type="submit" class="btn btn-primary btn-sm">저장 완료</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>질문</th>
+                                        <th>출제자</th>
+                                        <th>선택지</th>
+                                        <th>정답</th>
+                                        <th>보상액</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-quizzes-list">
+                                    <!-- 퀴즈 목록 로딩 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 3) 이웃(NPC) 관리 -->
+                    <div id="admin-npcs-section" class="admin-section hidden">
+                        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <p class="section-desc" style="margin-bottom:0;">동네 곳곳에 등록된 이웃(NPC)들의 위치와 대사를 확인하고 추가, 수정, 삭제합니다.</p>
+                            <button id="btn-admin-add-npc-trigger" class="btn btn-warning btn-sm">➕ 새 이웃 추가</button>
+                        </div>
+                        
+                        <!-- NPC 추가/수정 폼 (기본 hidden) -->
+                        <div id="admin-npc-form-section" class="hidden" style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-glass); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                            <h3 id="admin-npc-form-title" style="font-size: 13px; color: var(--warning); margin-bottom: 12px; font-family: Galmuri9, monospace;">📝 새 이웃 추가</h3>
+                            <form id="admin-npc-form" style="display:flex; flex-direction:column; gap:10px;">
+                                <input type="hidden" id="admin-npc-edit-id" value="">
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                    <div class="control-group">
+                                        <label>이름</label>
+                                        <input type="text" id="admin-npc-name" placeholder="예: 붕어빵 사장님" required maxlength="12">
+                                    </div>
+                                    <div class="control-group">
+                                        <label>역할 / 한 줄 소개</label>
+                                        <input type="text" id="admin-npc-role" placeholder="예: 동네 최고의 간식 요리사" required maxlength="20">
+                                    </div>
+                                </div>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+                                    <div class="control-group">
+                                        <label>X 좌표</label>
+                                        <input type="number" id="admin-npc-x" value="30" min="2" max="58" required>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Y 좌표</label>
+                                        <input type="number" id="admin-npc-y" value="34" min="2" max="58" required>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>성별</label>
+                                        <select id="admin-npc-gender" class="form-select">
+                                            <option value="male">남성형</option>
+                                            <option value="female">여성형</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+                                    <div class="control-group">
+                                        <label>피부 색상</label>
+                                        <input type="color" id="admin-npc-color-skin" value="#ffdbac">
+                                    </div>
+                                    <div class="control-group">
+                                        <label>머리 색상</label>
+                                        <input type="color" id="admin-npc-color-hair" value="#5d4037">
+                                    </div>
+                                    <div class="control-group">
+                                        <label>복장 색상</label>
+                                        <input type="color" id="admin-npc-color-outfit" value="#37474f">
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <label>대화 대사 (줄바꿈으로 구분)</label>
+                                    <textarea id="admin-npc-dialogues" rows="3" placeholder="대사를 입력해 주세요." required></textarea>
+                                </div>
+                                <div style="display:flex; gap:10px; justify-content: flex-end; margin-top: 5px;">
+                                    <button type="button" id="btn-admin-npc-cancel" class="btn btn-secondary btn-sm">취소</button>
+                                    <button type="submit" class="btn btn-primary btn-sm">저장 완료</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>이름</th>
+                                        <th>역할</th>
+                                        <th>배치 좌표</th>
+                                        <th>등록 시각</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-npcs-list">
+                                    <!-- NPC 목록 로딩 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Core Game & Data Logic -->
+    <script src="game.js"></script>
+</body>
+</html>
