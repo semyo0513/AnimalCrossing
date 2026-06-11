@@ -848,6 +848,11 @@ class WorldScene extends Phaser.Scene {
         this.coinsGroup = null;
     }
 
+    init(data) {
+        this.spawnCoords = data;
+        this.isInteracting = false;
+    }
+
     preload() {
         generateMapTiles(this);
         
@@ -899,8 +904,10 @@ class WorldScene extends Phaser.Scene {
         // 4. 나무 가로수 스폰
         this.spawnTrees();
 
-        // 5. 플레이어 생성 (분수대 아래 시작)
-        this.player = this.physics.add.sprite(30 * TILE_SIZE + 16, 33 * TILE_SIZE + 16, 'player', 'down');
+        // 5. 플레이어 생성 (분수대 아래 시작 또는 이전 씬에서 넘어온 좌표)
+        const spawnX = (this.spawnCoords && this.spawnCoords.x !== undefined) ? this.spawnCoords.x : 30 * TILE_SIZE + 16;
+        const spawnY = (this.spawnCoords && this.spawnCoords.y !== undefined) ? this.spawnCoords.y : 33 * TILE_SIZE + 16;
+        this.player = this.physics.add.sprite(spawnX, spawnY, 'player', 'down');
         this.physics.world.setBounds(0, 0, MAP_WIDTH * TILE_SIZE, MAP_HEIGHT * TILE_SIZE);
         this.player.setCollideWorldBounds(true);
         this.player.body.setCircle(8, 8, 16); // 발밑 원형 충돌 판정
@@ -4195,23 +4202,15 @@ class IndoorScene extends Phaser.Scene {
         const doorY = startY + (roomSize - 1) * TILE_SIZE + 16;
         
         const distToDoor = Phaser.Math.Distance.Between(this.player.x, this.player.y, doorX, doorY + 24);
-        if (distToDoor < 28) {
+        if (distToDoor < 28 && !this.isInteracting) {
+            this.isInteracting = true;
             this.cameras.main.fadeOut(200);
             this.time.delayedCall(200, () => {
                 this.scene.stop('IndoorScene');
-                this.scene.start('WorldScene');
-                
-                const worldScene = gameInstance.scene.getScene('WorldScene');
-                if (worldScene) {
-                    worldScene.cameras.main.fadeIn(200);
-                    if (worldScene.player) {
-                        worldScene.player.setPosition(
-                            this.parentCoords.x * TILE_SIZE + 16,
-                            this.parentCoords.y * TILE_SIZE + 48
-                        );
-                    }
-                    worldScene.isInteracting = false;
-                }
+                this.scene.start('WorldScene', {
+                    x: this.parentCoords.x * TILE_SIZE + 16,
+                    y: this.parentCoords.y * TILE_SIZE + 48
+                });
             });
         }
 
@@ -4614,15 +4613,15 @@ class FantasyForestScene extends Phaser.Scene {
 
         // 복귀 포탈 이동 감지
         const distPortal = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.returnPortal.x, this.returnPortal.y);
-        if (distPortal < 25) {
+        if (distPortal < 25 && !worldScene.isInteracting) {
+            worldScene.isInteracting = true;
             this.cameras.main.fadeOut(200);
             this.time.delayedCall(200, () => {
                 this.scene.stop('FantasyForestScene');
-                this.scene.start('WorldScene');
-                
-                worldScene.cameras.main.fadeIn(200);
-                worldScene.player.setPosition(47 * TILE_SIZE + 16, 15 * TILE_SIZE + 16);
-                worldScene.isInteracting = false;
+                this.scene.start('WorldScene', {
+                    x: 47 * TILE_SIZE + 16,
+                    y: 15 * TILE_SIZE + 16
+                });
             });
         }
     }
