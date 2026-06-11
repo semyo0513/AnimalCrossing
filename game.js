@@ -26,12 +26,26 @@ let syncIntervalId = null; // 백그라운드 폴링 타이머 ID
 
 // 상점 아이템 데이터베이스 정의
 const SHOP_ITEMS = [
-    { id: 'item_crown', name: '👑 황금 왕관', desc: '머리 위에 반짝이는 황금 왕관을 씁니다.', category: 'accessory', cost: 200 },
-    { id: 'item_glasses', name: '😎 멋쟁이 선글라스', desc: '눈 위치에 세련된 검은 선글라스를 착용합니다.', category: 'accessory', cost: 100 },
-    { id: 'item_halo', name: '😇 천사 링', desc: '머리 위에 둥둥 떠 있는 은은한 천사 링을 답니다.', category: 'accessory', cost: 250 },
-    { id: 'item_balloon', name: '🎈 빨간 풍선', desc: '캐릭터 곁에 둥실 따라다니는 풍선 끈을 잡습니다.', category: 'accessory', cost: 150 },
-    { id: 'item_shoes', name: '👟 러닝 슈즈', desc: '이동 속도가 대폭 빨라집니다. (기본 속도 120 -> 180)', category: 'upgrade', cost: 300 },
-    { id: 'item_trail_rainbow', name: '✨ 무지개 흔적', desc: '달릴 때마다 발밑에 아름다운 무지개색 불꽃을 남깁니다.', category: 'upgrade', cost: 400 }
+    // 액세서리
+    { id: 'item_crown', name: '👑 황금 왕관', desc: '왕관의 권위로 상점에서 판매하는 모든 아이템이 20% 할인됩니다.', category: 'accessory', cost: 200 },
+    { id: 'item_glasses', name: '😎 멋쟁이 선글라스', desc: '선글라스의 탐지 렌즈로 미니맵에 필드 동전/상자 위치가 실시간 표시됩니다.', category: 'accessory', cost: 100 },
+    { id: 'item_halo', name: '😇 천사 링', desc: '천사의 가호로 5초마다 2G씩 자동으로 골드가 차오릅니다.', category: 'accessory', cost: 250 },
+    { id: 'item_balloon', name: '🎈 빨간 풍선', desc: '풍선을 타고 몸이 가벼워져 배가 없어도 물(호수/강) 위를 떠다닙니다.', category: 'accessory', cost: 150 },
+    { id: 'item_bunny', name: '🐰 토끼 머리띠', desc: '대시 기능 잠금 해제! Shift(데스크톱) 또는 Dash버튼(모바일)으로 3초 쿨타임 대시를 씁니다.', category: 'accessory', cost: 180 },
+    { id: 'item_flower', name: '🌸 벚꽃 핀', desc: '벚꽃의 따뜻한 온기로 NPC와의 대화 완료 골드 보상이 2배로 증가합니다.', category: 'accessory', cost: 130 },
+    { id: 'item_cat', name: '🐱 고양이 꼬리', desc: '고양이의 민첩성으로 이동 속도가 상시 +30 증가합니다.', category: 'accessory', cost: 220 },
+    { id: 'item_star_wand', name: '⭐ 별빛 지팡이', desc: '15초마다 플레이어 근처에 보너스 동전/별이 1개 추가 스폰됩니다.', category: 'accessory', cost: 280 },
+    { id: 'item_scarf', name: '🧣 빨간 목도리', desc: '목도리의 보온 효과로, FantasyForestScene(차원 숲)의 마법의 별 골드 획득량이 +15G 증가합니다.', category: 'accessory', cost: 120 },
+    { id: 'item_backpack', name: '🎒 탐험가 배낭', desc: '선물 상자에서 획득하는 모든 버프 지속 시간이 2배로 증가합니다 (15초 → 30초).', category: 'accessory', cost: 190 },
+    // 업그레이드
+    { id: 'item_shoes', name: '👟 러닝 슈즈', desc: '이동 속도가 대폭 빨라집니다. (기본 속도 120 → 180)', category: 'upgrade', cost: 300 },
+    { id: 'item_trail_rainbow', name: '✨ 무지개 흔적', desc: '달릴 때마다 발밑에 아름다운 무지개색 불꽃을 남깁니다.', category: 'upgrade', cost: 400 },
+    { id: 'item_trail_snow', name: '❄️ 눈꽃 흔적', desc: '발걸음마다 하얀 눈꽃 결정이 피어납니다.', category: 'upgrade', cost: 350 },
+    { id: 'item_aura_spark', name: '⚡ 번개 오라', desc: '몸 주변에 지속적으로 번개 아우라가 맴돕니다.', category: 'upgrade', cost: 500 },
+    { id: 'item_aura_fire', name: '🔥 불꽃 오라', desc: '타오르는 불꽃 오라를 발산하며, 퀴즈 정답 시 획득 골드가 50% 보너스 증가합니다.', category: 'upgrade', cost: 480 },
+    { id: 'item_aura_ice', name: '🧊 얼음 오라', desc: '신비로운 얼음 오라를 발산하며, 상점 구매 시 추가로 10% 할인을 받습니다 (왕관 중첩 가능).', category: 'upgrade', cost: 460 },
+    { id: 'item_lucky_coin', name: '🍀 행운의 동전', desc: '동전 획득 시 추가 보너스 골드를 얻습니다. (+50%)', category: 'upgrade', cost: 600 },
+    { id: 'item_boat_pass', name: '⛵ 뱃사람 증명서', desc: '호수에서 배를 타고 자유롭게 이동할 수 있습니다.', category: 'upgrade', cost: 700 },
 ];
 
 // 기본 NPC 데이터 (최초 로드 시 적용)
@@ -691,44 +705,84 @@ function generateMapTiles(scene) {
 // 3. 월드 맵 설계 데이터 (60 x 60 Grid)
 // ==========================================================================
 
-const MAP_WIDTH = 60;
-const MAP_HEIGHT = 60;
+const MAP_WIDTH = 100;
+const MAP_HEIGHT = 100;
 
 let mapData = [];
 let obstaclesMap = [];
+
+// 호수 정의 (좌표와 반경) - 보트 탑승 시 통과 가능
+const LAKE_REGIONS = [
+    { cx: 47.5, cy: 11.5, radius: 9 },  // 북동쪽 큰 호수
+    { cx: 75, cy: 20, radius: 8 },       // 동쪽 신규 호수
+    { cx: 20, cy: 75, radius: 7 },       // 남서쪽 신규 호수
+];
+
+function isInLake(gx, gy) {
+    for (const lake of LAKE_REGIONS) {
+        if (Math.abs(gy - lake.cy) + Math.abs(gx - lake.cx) < lake.radius) return true;
+    }
+    return false;
+}
 
 function initMapGrid() {
     mapData = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(0));
     obstaclesMap = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(0));
     
-    // 꽃 장식
+    // 꽃 장식 (랜덤)
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
-            if (Math.random() < 0.12) mapData[y][x] = 1;
+            if (Math.random() < 0.10) mapData[y][x] = 1;
         }
     }
 
-    // 도로 깔기
+    // 메인 도로 (십자 + 광장)
     for (let y = 2; y < MAP_HEIGHT - 2; y++) {
+        mapData[y][49] = 2; mapData[y][50] = 2; mapData[y][51] = 2;
         mapData[y][29] = 2; mapData[y][30] = 2; mapData[y][31] = 2;
     }
     for (let x = 2; x < MAP_WIDTH - 2; x++) {
+        mapData[49][x] = 2; mapData[50][x] = 2; mapData[51][x] = 2;
         mapData[29][x] = 2; mapData[30][x] = 2; mapData[31][x] = 2;
     }
+    // 중앙 광장
     for (let y = 24; y <= 35; y++) {
         for (let x = 24; x <= 35; x++) mapData[y][x] = 2;
     }
+    // 동쪽 광장
+    for (let y = 44; y <= 55; y++) {
+        for (let x = 44; x <= 55; x++) mapData[y][x] = 2;
+    }
+    // 북동 골목길
+    for (let y = 5; y < 25; y++) {
+        mapData[y][60] = 2; mapData[y][61] = 2;
+    }
+    // 남쪽 마을 연결로
+    for (let x = 55; x < 85; x++) {
+        mapData[70][x] = 2; mapData[71][x] = 2;
+    }
+    // 북서 공원 산책로
+    for (let y = 5; y < 20; y++) {
+        mapData[y][15] = 2; mapData[y][16] = 2;
+    }
+    for (let x = 5; x < 20; x++) {
+        mapData[15][x] = 2; mapData[16][x] = 2;
+    }
 
-    // 북동쪽 호수
-    for (let y = 5; y < 18; y++) {
-        for (let x = 40; x < 55; x++) {
-            if (Math.abs(y - 11.5) + Math.abs(x - 47.5) < 9) {
-                mapData[y][x] = 3; obstaclesMap[y][x] = 1;
+    // 호수들 (obstacle=1 설정, 보트 없으면 통과 불가)
+    for (const lake of LAKE_REGIONS) {
+        for (let y = Math.floor(lake.cy - lake.radius - 2); y < Math.ceil(lake.cy + lake.radius + 2); y++) {
+            for (let x = Math.floor(lake.cx - lake.radius - 2); x < Math.ceil(lake.cx + lake.radius + 2); x++) {
+                if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
+                    if (Math.abs(y - lake.cy) + Math.abs(x - lake.cx) < lake.radius) {
+                        mapData[y][x] = 3; obstaclesMap[y][x] = 1;
+                    }
+                }
             }
         }
     }
 
-    // 남서쪽 연못
+    // 남서쪽 연못 (소형)
     for (let y = 43; y < 50; y++) {
         for (let x = 7; x < 16; x++) {
             if (Math.abs(y - 46) + Math.abs(x - 11) < 5) {
@@ -736,7 +790,6 @@ function initMapGrid() {
             }
         }
     }
-
     // 북서쪽 공원 연못
     for (let y = 6; y < 13; y++) {
         for (let x = 6; x < 13; x++) {
@@ -745,13 +798,22 @@ function initMapGrid() {
             }
         }
     }
-
-    // 동쪽 시냇물 개울
-    for (let y = 18; y < 48; y++) {
-        let waveX = 48 + Math.floor(Math.sin(y * 0.35) * 2.5);
+    // 동쪽 시냇물
+    for (let y = 18; y < 90; y++) {
+        let waveX = 85 + Math.floor(Math.sin(y * 0.35) * 2.5);
         for (let x = waveX - 1; x <= waveX + 1; x++) {
             if (x >= 0 && x < MAP_WIDTH) {
                 mapData[y][x] = 3; obstaclesMap[y][x] = 1;
+            }
+        }
+    }
+    // 남부 강
+    for (let x = 5; x < 95; x++) {
+        const waveY = 90 + Math.floor(Math.sin(x * 0.3) * 1.5);
+        for (let dy = -1; dy <= 2; dy++) {
+            const fy = waveY + dy;
+            if (fy >= 0 && fy < MAP_HEIGHT) {
+                mapData[fy][x] = 3; obstaclesMap[fy][x] = 1;
             }
         }
     }
@@ -823,6 +885,7 @@ class WorldScene extends Phaser.Scene {
             for (let x = 0; x < MAP_WIDTH; x++) {
                 if (obstaclesMap[y][x] === 1) {
                     const block = this.add.rectangle(x * TILE_SIZE + 16, y * TILE_SIZE + 16, TILE_SIZE, TILE_SIZE);
+                    block.isWater = (mapData[y][x] === 3);
                     this.physics.add.existing(block, true);
                     block.setVisible(false);
                     this.staticObstacles.add(block);
@@ -842,7 +905,13 @@ class WorldScene extends Phaser.Scene {
         this.player.setCollideWorldBounds(true);
         this.player.body.setCircle(8, 8, 16); // 발밑 원형 충돌 판정
 
-        this.physics.add.collider(this.player, this.staticObstacles);
+        this.physics.add.collider(this.player, this.staticObstacles, null, (player, obstacle) => {
+            if (activeBuffs.gravity) return false;
+            if (currentUser && currentUser.equipped.includes('item_balloon') && obstacle.isWater) return false;
+            if (activeBuffs.freeze && obstacle.isWater) return false;
+            if (onBoat && obstacle.isWater) return false;
+            return true;
+        }, this);
 
         // 6. 카메라 설정
         this.cameras.main.setBounds(0, 0, MAP_WIDTH * TILE_SIZE, MAP_HEIGHT * TILE_SIZE);
@@ -862,24 +931,31 @@ class WorldScene extends Phaser.Scene {
             this.handleInteraction();
         });
 
+        this.input.keyboard.on('keydown-SHIFT', () => {
+            triggerDash(this);
+        });
+
         // 8. NPC 동적 생성 및 물리 설정
         this.npcGroup = this.physics.add.staticGroup();
         this.spawnNPCs();
-        this.physics.add.collider(this.player, this.npcGroup);
+        this.physics.add.collider(this.player, this.npcGroup, null, () => {
+            if (activeBuffs.gravity) return false;
+            return true;
+        }, this);
 
         // 9. 돌발 황금 동전 스폰 물리 그룹 설정
         this.coinsGroup = this.physics.add.group();
         this.physics.add.overlap(this.player, this.coinsGroup, this.collectCoin, null, this);
         
-        // 25초마다 돌발 동전 스폰 작동
+        // 10초마다 돌발 동전 스폰 작동
         this.time.addEvent({
-            delay: 25000,
+            delay: 10000,
             callback: this.spawnRandomCoin,
             callbackScope: this,
             loop: true
         });
-        // 시작 직후 즉시 3개 미리 스폰
-        for (let i = 0; i < 3; i++) this.spawnRandomCoin();
+        // 시작 직후 즉시 10개 미리 스폰
+        for (let i = 0; i < 10; i++) this.spawnRandomCoin();
 
         // 10. 상호작용 알림 말풍선 UI
         this.interactionPrompt = this.add.text(0, 0, 'Space 키로 대화/퀴즈', {
@@ -910,16 +986,16 @@ class WorldScene extends Phaser.Scene {
         this.boxesGroup = this.physics.add.group();
         this.physics.add.overlap(this.player, this.boxesGroup, this.collectBox, null, this);
         
-        // 40초마다 돌발 선물 상자 스폰
+        // 15초마다 돌발 선물 상자 스폰
         this.time.addEvent({
-            delay: 40000,
+            delay: 15000,
             callback: this.spawnRandomBox,
             callbackScope: this,
             loop: true
         });
         
-        // 시작 즉시 선물 상자 1개 스폰 시도
-        this.spawnRandomBox();
+        // 시작 즉시 선물 상자 3개 스폰 시도
+        for (let i = 0; i < 3; i++) this.spawnRandomBox();
 
         // 실시간 지도 동기화 루프
         this.time.addEvent({
@@ -936,14 +1012,28 @@ class WorldScene extends Phaser.Scene {
 
     spawnBuildings() {
         const structures = [
+            // 중앙 광장 분수대
             { x: 29, y: 28, type: 'obj-fountain', cx: 32, cy: 32, cw: 56, ch: 40, co: 8 },
+            // 주택지역
             { x: 20, y: 20, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 20, y: 13, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 20, y: 6, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            // 동쪽 상가
             { x: 34, y: 25, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
             { x: 34, y: 18, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 44, y: 17, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            
+            // 확장된 동쪽 마을
+            { x: 58, y: 28, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 58, y: 14, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 65, y: 28, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 65, y: 14, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            // 남쪽 마을
+            { x: 30, y: 60, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 40, y: 60, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 50, y: 60, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 60, y: 60, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
+            // 동쪽 광장 분수대
+            { x: 49, y: 48, type: 'obj-fountain', cx: 32, cy: 32, cw: 56, ch: 40, co: 8 },
             // 가로등
             { x: 28, y: 4, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
             { x: 28, y: 12, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
@@ -953,13 +1043,18 @@ class WorldScene extends Phaser.Scene {
             { x: 32, y: 12, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
             { x: 32, y: 20, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
             { x: 32, y: 38, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-
+            { x: 48, y: 38, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
+            { x: 52, y: 38, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
+            { x: 48, y: 56, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
+            { x: 52, y: 56, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
             // 벤치
             { x: 27, y: 32, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
             { x: 31, y: 32, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
             { x: 10, y: 13, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
             { x: 14, y: 45, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
-            { x: 42, y: 8, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 }
+            { x: 42, y: 8, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
+            { x: 47, y: 52, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
+            { x: 53, y: 52, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
         ];
 
         structures.forEach(s => {
@@ -974,7 +1069,26 @@ class WorldScene extends Phaser.Scene {
             this.staticObstacles.add(zone);
         });
 
-        // 울타리
+        // 보트 선착장 시각화 (호수 북동쪽)
+        this.boatDock = this.add.rectangle(
+            40 * TILE_SIZE + 16, 12 * TILE_SIZE + 16,
+            TILE_SIZE * 2, TILE_SIZE,
+            0x78350f
+        );
+        this.boatDock.setDepth(10);
+        const dockText = this.add.text(40 * TILE_SIZE + 16, 12 * TILE_SIZE - 6, '⛵ 선착장', {
+            fontFamily: 'Galmuri9, monospace', fontSize: '8px',
+            color: '#ffd54f', stroke: '#000', strokeThickness: 2
+        }).setOrigin(0.5, 1).setDepth(20);
+
+        // 동쪽 호수 선착장
+        this.add.rectangle(73 * TILE_SIZE + 16, 20 * TILE_SIZE + 16, TILE_SIZE * 2, TILE_SIZE, 0x78350f).setDepth(10);
+        this.add.text(73 * TILE_SIZE + 16, 20 * TILE_SIZE - 6, '⛵ 선착장', {
+            fontFamily: 'Galmuri9, monospace', fontSize: '8px',
+            color: '#ffd54f', stroke: '#000', strokeThickness: 2
+        }).setOrigin(0.5, 1).setDepth(20);
+
+        // 본래 울타리
         for (let y = 5; y <= 23; y++) {
             if (y !== 10 && y !== 11 && y !== 17 && y !== 18) {
                 const px = 23 * TILE_SIZE + 16;
@@ -1075,14 +1189,13 @@ class WorldScene extends Phaser.Scene {
 
     // 돌발 황금 동전 스폰
     spawnRandomCoin() {
-        // 최대 10개 제한
-        if (this.coinsGroup.getChildren().length >= 10) return;
+        // 맵 확장 시 20개까지 제한
+        if (this.coinsGroup.getChildren().length >= 50) return;
 
         let found = false;
         let cx, cy;
         
-        // 겹치지 않고 장애물 아닌 잔디나 벽돌길 타일 찾기
-        for (let attempts = 0; attempts < 50; attempts++) {
+        for (let attempts = 0; attempts < 80; attempts++) {
             cx = Phaser.Math.Between(2, MAP_WIDTH - 3);
             cy = Phaser.Math.Between(2, MAP_HEIGHT - 3);
             
@@ -1100,7 +1213,6 @@ class WorldScene extends Phaser.Scene {
             coin.setDepth(py);
             this.coinsGroup.add(coin);
             
-            // 둥둥 뜨는 둥실 바운싱 애니메이션 추가
             this.tweens.add({
                 targets: coin,
                 y: py - 6,
@@ -1119,9 +1231,11 @@ class WorldScene extends Phaser.Scene {
         playSynthDing();
         
         let amount = 10;
-        if (activeBuffs.shield) {
-            amount = 20; // 2x gold shield buff
+        if (activeBuffs.shield) amount = 20;       // 골드 2배 버프
+        if (currentUser && currentUser.equipped.includes('item_lucky_coin')) {
+            amount = Math.floor(amount * 1.5);      // 행운의 동전 +50%
         }
+        if (activeBuffs.lucky) amount = Math.floor(amount * 2.5); // 초행운 버프
         
         if (currentUser) {
             currentUser.gold += amount;
@@ -1153,7 +1267,7 @@ class WorldScene extends Phaser.Scene {
         box.destroy();
         playSynthDing();
         
-        const effects = ['giant', 'mini', 'magnet', 'shield', 'boost'];
+        const effects = ['giant', 'mini', 'magnet', 'shield', 'boost', 'invisible', 'freeze', 'lucky', 'autoGold', 'gravity'];
         const chosenEffect = Phaser.Utils.Array.GetRandom(effects);
         
         activateBuff(chosenEffect);
@@ -1179,7 +1293,7 @@ class WorldScene extends Phaser.Scene {
 
     // 돌발 선물 상자 스폰
     spawnRandomBox() {
-        if (this.boxesGroup.getChildren().length >= 3) return;
+        if (this.boxesGroup.getChildren().length >= 8) return;
         
         let found = false;
         let cx, cy;
@@ -1254,13 +1368,13 @@ class WorldScene extends Phaser.Scene {
     // 번개 오라 ⚡ 이펙트 헬퍼
     spawnElectricSpark(px, py) {
         const angle = (this.time.now / 150) % (Math.PI * 2);
-        const radius = 24;
+        const radius = 24 * (activeBuffs.giant ? 2.2 : (activeBuffs.mini ? 0.5 : 1));
         const sx = px + Math.cos(angle) * radius;
         const sy = py + Math.sin(angle) * radius;
         
         const spark = this.add.text(sx, sy, '⚡', {
             fontFamily: 'monospace',
-            fontSize: '10px',
+            fontSize: activeBuffs.giant ? '14px' : '9px',
             color: '#ffd54f'
         });
         spark.setOrigin(0.5, 0.5);
@@ -1275,6 +1389,54 @@ class WorldScene extends Phaser.Scene {
         });
     }
 
+    // 불꽃 오라 🔥 이펙트 헬퍼
+    spawnFireSpark(px, py) {
+        const angle = (this.time.now / 120) % (Math.PI * 2);
+        const radius = 24 * (activeBuffs.giant ? 2.2 : (activeBuffs.mini ? 0.5 : 1));
+        const sx = px + Math.cos(angle) * radius;
+        const sy = py + Math.sin(angle) * radius;
+        
+        const spark = this.add.text(sx, sy, '🔥', {
+            fontFamily: 'monospace',
+            fontSize: activeBuffs.giant ? '14px' : '9px',
+            color: '#f97316'
+        });
+        spark.setOrigin(0.5, 0.5);
+        spark.setDepth(py + 10);
+        
+        this.tweens.add({
+            targets: spark,
+            scale: 1.6,
+            alpha: 0,
+            duration: 350,
+            onComplete: () => spark.destroy()
+        });
+    }
+
+    // 얼음 오라 🧊 이펙트 헬퍼
+    spawnIceSpark(px, py) {
+        const angle = -(this.time.now / 180) % (Math.PI * 2);
+        const radius = 24 * (activeBuffs.giant ? 2.2 : (activeBuffs.mini ? 0.5 : 1));
+        const sx = px + Math.cos(angle) * radius;
+        const sy = py + Math.sin(angle) * radius;
+        
+        const spark = this.add.text(sx, sy, '❄️', {
+            fontFamily: 'monospace',
+            fontSize: activeBuffs.giant ? '12px' : '8px',
+            color: '#38bdf8'
+        });
+        spark.setOrigin(0.5, 0.5);
+        spark.setDepth(py + 10);
+        
+        this.tweens.add({
+            targets: spark,
+            scale: 1.4,
+            alpha: 0,
+            duration: 400,
+            onComplete: () => spark.destroy()
+        });
+    }
+
     update() {
         if (!currentUser) return;
         
@@ -1283,8 +1445,20 @@ class WorldScene extends Phaser.Scene {
             return;
         }
 
-        // 버프 여부에 따른 이동속도 세팅
+        // 대시 중 처리
+        if (dashActiveTimer > 0) {
+            dashActiveTimer -= this.game.loop.delta;
+            this.player.setVelocity(dashDirX * 320, dashDirY * 320);
+            if (this.time.now % 2 === 0) {
+                this.spawnTrailParticle(this.player.x, this.player.y + 12);
+            }
+            this.player.setDepth(this.player.y);
+            return;
+        }
+
+        // 버프 및 아이템 장착 여부에 따른 이동속도 세팅
         let speed = currentUser.equipped.includes('item_shoes') ? 180 : 120;
+        if (currentUser.equipped.includes('item_cat')) speed += 30; // 고양이 꼬리 +30속도
         if (activeBuffs.boost) speed = 260;
         else if (activeBuffs.giant) speed = 200;
         
@@ -1332,6 +1506,16 @@ class WorldScene extends Phaser.Scene {
             this.spawnElectricSpark(this.player.x, this.player.y);
         }
 
+        // 불꽃 오라 🔥 상시 회전 방출 연출 (불꽃 오라 장착 시)
+        if (currentUser.equipped.includes('item_aura_fire') && this.time.now % 10 < 3) {
+            this.spawnFireSpark(this.player.x, this.player.y);
+        }
+
+        // 얼음 오라 🧊 상시 회전 방출 연출 (얼음 오라 장착 시)
+        if (currentUser.equipped.includes('item_aura_ice') && this.time.now % 10 < 3) {
+            this.spawnIceSpark(this.player.x, this.player.y);
+        }
+
         // 돌발 부스터 버프 트레일 강제 방출
         if (activeBuffs.boost && this.player.body.speed > 0 && this.time.now % 5 < 2) {
             this.spawnTrailParticle(this.player.x, this.player.y + 12);
@@ -1374,7 +1558,28 @@ class WorldScene extends Phaser.Scene {
             });
         }
 
-        // 가까운 NPC 감지
+        // 선장 근첲 보트 탑승 감지
+        const dockPositions = [
+            { wx: 40 * TILE_SIZE + 16, wy: 12 * TILE_SIZE + 16 },
+            { wx: 73 * TILE_SIZE + 16, wy: 20 * TILE_SIZE + 16 }
+        ];
+        let nearDock = false;
+        for (const dock of dockPositions) {
+            if (Phaser.Math.Distance.Between(this.player.x, this.player.y, dock.wx, dock.wy) < 48) {
+                nearDock = true;
+                break;
+            }
+        }
+        
+        if (nearDock && currentUser && currentUser.equipped.includes('item_boat_pass')) {
+            if (onBoat) {
+                showHUDMessage('⛵ Space 또는 Talk 버튼으로 보트 하선!');
+            } else {
+                showHUDMessage('⛵ Space 또는 Talk 버튼으로 보트 탑승!');
+            }
+        }
+
+        // NPC 대화 감지
         let nearbyNpc = null;
         let minDistance = 50;
         this.npcGroup.getChildren().forEach(npcSprite => {
@@ -1398,7 +1603,34 @@ class WorldScene extends Phaser.Scene {
     handleInteraction() {
         if (this.isInteracting) {
             progressDialogue();
-        } else if (this.activeNpc) {
+            return;
+        }
+
+        // 선착장 보트 탑승/하선 체크
+        const dockPositions = [
+            { wx: 40 * TILE_SIZE + 16, wy: 12 * TILE_SIZE + 16 },
+            { wx: 73 * TILE_SIZE + 16, wy: 20 * TILE_SIZE + 16 }
+        ];
+        let nearDock = false;
+        for (const dock of dockPositions) {
+            if (Phaser.Math.Distance.Between(this.player.x, this.player.y, dock.wx, dock.wy) < 48) {
+                nearDock = true;
+                break;
+            }
+        }
+
+        if (nearDock && currentUser && currentUser.equipped.includes('item_boat_pass')) {
+            onBoat = !onBoat;
+            if (onBoat) {
+                showHUDMessage('⛵ 보트에 탑승했습니다! 호수를 건널 수 있습니다.');
+            } else {
+                showHUDMessage('⛵ 보트에서 하선했습니다.');
+            }
+            applyPhaserBuffVisuals(Object.keys(activeBuffs).find(k => activeBuffs[k] === true && k !== 'timer'));
+            return;
+        }
+
+        if (this.activeNpc) {
             this.isInteracting = true;
             startDialogue(this.activeNpc);
             
@@ -1430,6 +1662,17 @@ class WorldScene extends Phaser.Scene {
         if (!currentUser) return;
         generateCharacterTextureCache(this, 'player', currentUser.spriteStyle, currentUser.equipped);
         this.player.setTexture('player', 'down');
+        
+        // 토끼 머리띠 장착 여부에 따른 모바일 대시 버튼 노출/숨김
+        const dashBtn = document.getElementById('dash-button');
+        if (dashBtn) {
+            if (currentUser.equipped.includes('item_bunny')) {
+                dashBtn.classList.remove('hidden');
+                updateDashButtonCooldown();
+            } else {
+                dashBtn.classList.add('hidden');
+            }
+        }
     }
 }
 
@@ -1566,12 +1809,23 @@ function progressDialogue() {
                 openQuizSolver(randomQuiz);
             } else {
                 // 대화 보상 지급 (1~5G) 및 대화창 종료
-                const reward = Math.floor(Math.random() * 5) + 1;
+                let reward = Math.floor(Math.random() * 5) + 1;
+                if (activeBuffs.invisible) {
+                    reward *= 3; // 3x surprise reward!
+                } else if (currentUser.equipped.includes('item_flower')) {
+                    reward *= 2; // Cherry blossom flower pin gives 2x reward!
+                }
                 currentUser.gold += reward;
                 syncCurrentUser();
                 
                 // 보상 토스트
-                showHUDMessage(`💬 대화 완료 보상 +${reward}G!`);
+                if (activeBuffs.invisible) {
+                    showHUDMessage(`👻 깜짝 놀란 이웃의 대화 완료 보상 +${reward}G!`);
+                } else if (currentUser.equipped.includes('item_flower')) {
+                    showHUDMessage(`🌸 벚꽃 핀 보너스 대화 완료 보상 +${reward}G!`);
+                } else {
+                    showHUDMessage(`💬 대화 완료 보상 +${reward}G!`);
+                }
                 closeDialogue();
             }
         }
@@ -1586,7 +1840,11 @@ function closeDialogueOnly() {
 function closeDialogue() {
     closeDialogueOnly();
     if (gameInstance) {
-        gameInstance.scene.getScene('WorldScene').isInteracting = false;
+        const scenes = ['WorldScene', 'IndoorScene', 'FantasyForestScene'];
+        scenes.forEach(name => {
+            const s = gameInstance.scene.getScene(name);
+            if (s) s.isInteracting = false;
+        });
     }
 }
 
@@ -1622,12 +1880,19 @@ function openQuizSolver(quiz) {
                 btn.className = 'btn-option correct-choice';
                 playSynthDing();
                 
+                let finalReward = quiz.reward;
+                if (currentUser.equipped.includes('item_aura_fire')) {
+                    finalReward = Math.floor(quiz.reward * 1.5); // 50% bonus gold for fire aura!
+                }
+                
                 resultMsg.className = 'solver-result-msg success';
-                resultMsg.innerText = `🎉 정답입니다! 보상 +${quiz.reward}G 획득!`;
+                resultMsg.innerText = currentUser.equipped.includes('item_aura_fire')
+                    ? `🎉 정답입니다! 불꽃 오라 보너스 적용! 보상 +${finalReward}G 획득!`
+                    : `🎉 정답입니다! 보상 +${finalReward}G 획득!`;
                 resultMsg.classList.remove('hidden');
                 
                 // 골드 가산 및 푼 리스트 기록
-                currentUser.gold += quiz.reward;
+                currentUser.gold += finalReward;
                 currentUser.solvedQuizzes.push(quiz.id);
                 syncCurrentUser();
                 
@@ -1739,6 +2004,54 @@ function drawMinimap(playerGridX = null, playerGridY = null) {
         ctx.fill();
         ctx.stroke();
     });
+
+    // 선글라스 장착 시 동전과 선물 상자 위치를 미니맵에 노란색/분홍색 점으로 표시!
+    if (currentUser && currentUser.equipped.includes('item_glasses') && gameInstance) {
+        const worldScene = gameInstance.scene.getScene('WorldScene');
+        if (worldScene && worldScene.sys.isActive()) {
+            // 동전 표시
+            if (worldScene.coinsGroup) {
+                worldScene.coinsGroup.getChildren().forEach(coin => {
+                    const gx = Math.floor(coin.x / TILE_SIZE);
+                    const gy = Math.floor(coin.y / TILE_SIZE);
+                    ctx.fillStyle = '#ffd54f';
+                    ctx.fillRect(gx * scale, gy * scale, scale * 1.5, scale * 1.5);
+                });
+            }
+            // 상자 표시
+            if (worldScene.boxesGroup) {
+                worldScene.boxesGroup.getChildren().forEach(box => {
+                    const gx = Math.floor(box.x / TILE_SIZE);
+                    const gy = Math.floor(box.y / TILE_SIZE);
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.fillRect(gx * scale, gy * scale, scale * 2, scale * 2);
+                });
+            }
+        }
+        
+        const forestScene = gameInstance.scene.getScene('FantasyForestScene');
+        if (forestScene && forestScene.sys.isActive()) {
+            const fScale = canvas.width / 40; // FantasyForestScene은 40x40 맵
+            // 별 표시
+            if (forestScene.starsGroup) {
+                forestScene.starsGroup.getChildren().forEach(star => {
+                    const gx = Math.floor(star.x / TILE_SIZE);
+                    const gy = Math.floor(star.y / TILE_SIZE);
+                    ctx.fillStyle = '#ec4899';
+                    ctx.fillRect(gx * fScale, gy * fScale, fScale * 1.5, fScale * 1.5);
+                });
+            }
+            // 상자 표시
+            if (forestScene.boxesGroup) {
+                forestScene.boxesGroup.getChildren().forEach(box => {
+                    const gx = Math.floor(box.x / TILE_SIZE);
+                    const gy = Math.floor(box.y / TILE_SIZE);
+                    ctx.fillStyle = '#22d3ee';
+                    ctx.fillRect(gx * fScale, gy * fScale, fScale * 2, fScale * 2);
+                });
+            }
+        }
+    }
 
     if (playerGridX !== null && playerGridY !== null) {
         ctx.fillStyle = '#ff1744';
@@ -1930,11 +2243,28 @@ function loadShopItems() {
         const emoji = item.name.split(' ')[0];
         const nameText = item.name.substring(emoji.length).trim();
 
+        // 할인율 계산
+        let discount = 1.0;
+        let discountLabel = '';
+        if (currentUser.equipped.includes('item_crown')) {
+            discount -= 0.2;
+            discountLabel += ' 왕관 20%';
+        }
+        if (currentUser.equipped.includes('item_aura_ice')) {
+            discount -= 0.1;
+            discountLabel += ' 얼음 10%';
+        }
+        const finalCost = Math.floor(item.cost * discount);
+
+        const costHTML = discount < 1.0
+            ? `<span style="text-decoration: line-through; opacity: 0.6; font-size: 11px;">💰 ${item.cost}G</span> <span style="color: #fbbf24; font-weight: bold;">💰 ${finalCost}G</span> <span class="badge" style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; font-size: 9px; padding: 2px 4px;">${discountLabel.trim()} 할인</span>`
+            : `💰 ${item.cost}G`;
+
         card.innerHTML = `
             <div class="item-emoji">${emoji}</div>
             <div class="item-name">${nameText}</div>
             <div class="item-desc">${item.desc}</div>
-            <div class="item-cost">💰 ${item.cost}G</div>
+            <div class="item-cost">${costHTML}</div>
             <button class="btn btn-primary btn-sm btn-buy-item" ${isOwned ? 'disabled' : ''}>
                 ${isOwned ? '보유 중' : '구매하기'}
             </button>
@@ -1942,9 +2272,10 @@ function loadShopItems() {
 
         if (!isOwned) {
             card.querySelector('.btn-buy-item').addEventListener('click', () => {
-                if (currentUser.gold >= item.cost) {
+                const actualCost = finalCost;
+                if (currentUser.gold >= actualCost) {
                     // 차감 후 구매 완료
-                    currentUser.gold -= item.cost;
+                    currentUser.gold -= actualCost;
                     currentUser.inventory.push(item.id);
                     syncCurrentUser();
                     playSynthDing();
@@ -2254,9 +2585,32 @@ function setupCreatorForm() {
 // 11. 가상 터치 조이스틱 모바일 제어
 // ==========================================================================
 
+// 활성 씬의 커서 객체를 반환 (WorldScene, IndoorScene, FantasyForestScene 공통)
+function getActiveSceneCursors() {
+    if (!gameInstance) return null;
+    const scenes = ['WorldScene', 'IndoorScene', 'FantasyForestScene'];
+    for (const name of scenes) {
+        const s = gameInstance.scene.getScene(name);
+        if (s && s.sys.isActive() && s.cursors) return s.cursors;
+    }
+    return null;
+}
+
+function getActiveScene() {
+    if (!gameInstance) return null;
+    const scenes = ['WorldScene', 'IndoorScene', 'FantasyForestScene'];
+    for (const name of scenes) {
+        const s = gameInstance.scene.getScene(name);
+        if (s && s.sys.isActive()) return s;
+    }
+    return null;
+}
+
 function initMobileControls() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
-        || window.innerWidth <= 768;
+        || window.innerWidth <= 1024
+        || ('ontouchstart' in window)
+        || (navigator.maxTouchPoints > 0);
         
     if (!isMobile) return;
     
@@ -2265,6 +2619,54 @@ function initMobileControls() {
     
     const joystickBase = document.getElementById('joystick-base');
     const joystickThumb = document.getElementById('joystick-thumb');
+    
+    // 대화(Talk) 버튼: 활성 씬의 handleInteraction 호출
+    const actionBtn = document.getElementById('action-button');
+    if (actionBtn) {
+        let lastActionTime = 0;
+        const handleAction = (e) => {
+            const now = Date.now();
+            if (now - lastActionTime < 150) return;
+            lastActionTime = now;
+            
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            const scene = getActiveScene();
+            if (scene && typeof scene.handleInteraction === 'function') {
+                scene.handleInteraction();
+            } else {
+                // 대화창이 열려있으면 progressDialogue
+                const dialogueBox = document.getElementById('dialogue-box');
+                if (dialogueBox && !dialogueBox.classList.contains('hidden')) {
+                    progressDialogue();
+                }
+            }
+        };
+        actionBtn.addEventListener('pointerdown', handleAction, { passive: false });
+        actionBtn.addEventListener('touchstart', handleAction, { passive: false });
+        actionBtn.addEventListener('click', handleAction);
+    }
+    
+    // 대시(Dash) 버튼: triggerDash 호출
+    const dashBtn = document.getElementById('dash-button');
+    if (dashBtn) {
+        const handleDash = (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const scene = getActiveScene();
+            if (scene) {
+                triggerDash(scene);
+            }
+        };
+        dashBtn.addEventListener('pointerdown', handleDash, { passive: false });
+        dashBtn.addEventListener('touchstart', handleDash, { passive: false });
+        dashBtn.addEventListener('click', handleDash);
+    }
     
     let dragging = false;
     
@@ -2285,12 +2687,12 @@ function initMobileControls() {
         joystickThumb.style.left = '50%';
         joystickThumb.style.top = '50%';
         
-        if (gameInstance) {
-            const worldScene = gameInstance.scene.getScene('WorldScene');
-            worldScene.cursors.left.isDown = false;
-            worldScene.cursors.right.isDown = false;
-            worldScene.cursors.up.isDown = false;
-            worldScene.cursors.down.isDown = false;
+        const cursors = getActiveSceneCursors();
+        if (cursors) {
+            cursors.left.isDown = false;
+            cursors.right.isDown = false;
+            cursors.up.isDown = false;
+            cursors.down.isDown = false;
         }
     });
     
@@ -2313,14 +2715,13 @@ function initMobileControls() {
         joystickThumb.style.left = `${50 + (deltaX / baseRect.width) * 100}%`;
         joystickThumb.style.top = `${50 + (deltaY / baseRect.height) * 100}%`;
         
-        if (gameInstance) {
-            const worldScene = gameInstance.scene.getScene('WorldScene');
+        const cursors = getActiveSceneCursors();
+        if (cursors) {
             const threshold = 15;
-            
-            worldScene.cursors.left.isDown = deltaX < -threshold;
-            worldScene.cursors.right.isDown = deltaX > threshold;
-            worldScene.cursors.up.isDown = deltaY < -threshold;
-            worldScene.cursors.down.isDown = deltaY > threshold;
+            cursors.left.isDown = deltaX < -threshold;
+            cursors.right.isDown = deltaX > threshold;
+            cursors.up.isDown = deltaY < -threshold;
+            cursors.down.isDown = deltaY > threshold;
         }
     }
 }
@@ -3215,23 +3616,88 @@ let activeBuffs = {
     magnet: false,
     shield: false,
     boost: false,
+    invisible: false,
+    freeze: false,
+    lucky: false,
+    autoGold: false,
+    gravity: false,
     timer: 0
 };
 
+// 보트 탑승 상태 관리
+let onBoat = false;
+
+// 대시 상태 관리 (토끼 머리띠)
+let dashCooldown = 0;
+let dashActiveTimer = 0;
+let dashDirX = 0;
+let dashDirY = 0;
+
+function triggerDash(scene) {
+    if (!currentUser || !currentUser.equipped.includes('item_bunny')) return;
+    if (dashCooldown > 0) return;
+    if (scene.isInteracting) return;
+    
+    // Check if player is moving
+    let vx = scene.player.body.velocity.x;
+    let vy = scene.player.body.velocity.y;
+    if (vx === 0 && vy === 0) return;
+    
+    // Normalize moving direction
+    const len = Math.sqrt(vx * vx + vy * vy);
+    dashDirX = vx / len;
+    dashDirY = vy / len;
+    
+    dashActiveTimer = 200; // 200ms
+    dashCooldown = 3; // 3 seconds
+    
+    playBeepSound(); // Play synth whoosh
+    
+    // Show visual dash effect: floating text
+    const fText = scene.add.text(scene.player.x, scene.player.y - 20, 'DASH! 🐰', {
+        fontFamily: 'Galmuri9, monospace',
+        fontSize: '11px',
+        color: '#f472b6',
+        stroke: '#000000',
+        strokeThickness: 2
+    });
+    fText.setOrigin(0.5, 0.5);
+    fText.setDepth(20000);
+    scene.tweens.add({
+        targets: fText,
+        y: scene.player.y - 50,
+        alpha: 0,
+        duration: 500,
+        onComplete: () => fText.destroy()
+    });
+    updateDashButtonCooldown();
+}
+
+function updateDashButtonCooldown() {
+    const btn = document.getElementById('dash-button');
+    if (!btn) return;
+    if (dashCooldown > 0) {
+        btn.innerText = `${dashCooldown}s`;
+        btn.style.opacity = '0.5';
+    } else {
+        btn.innerText = 'Dash';
+        btn.style.opacity = '1';
+    }
+}
+
 function activateBuff(type) {
     // 이전 버프 해제
-    activeBuffs.giant = false;
-    activeBuffs.mini = false;
-    activeBuffs.magnet = false;
-    activeBuffs.shield = false;
-    activeBuffs.boost = false;
+    Object.keys(activeBuffs).filter(k => k !== 'timer').forEach(k => activeBuffs[k] = false);
     
     activeBuffs[type] = true;
-    activeBuffs.timer = 12; // 12초 지속
+    
+    // 탐험가 배낭 장착 시 버프 지속시간 2배 (30초)
+    const duration = (currentUser && currentUser.equipped.includes('item_backpack')) ? 30 : 15;
+    activeBuffs.timer = duration;
     
     applyPhaserBuffVisuals(type);
     
-    showHUDMessage(`🎁 [${getBuffName(type)}] 버프 발동! (12초 지속)`);
+    showHUDMessage(`🎁 [${getBuffName(type)}] 버프 발동! (${duration}초 지속)`);
     updateBuffHUD();
 }
 
@@ -3240,43 +3706,144 @@ function getBuffName(type) {
         case 'giant': return '🐘 거인화';
         case 'mini': return '🐜 미니화';
         case 'magnet': return '🧲 동전 자석';
-        case 'shield': return '🛡️ 골드 2배막';
+        case 'shield': return '🛡️ 골드 2배';
         case 'boost': return '🚀 초고속 부스터';
-        default: return '';
+        case 'invisible': return '👻 투명인간';
+        case 'freeze': return '❄️ 주변 동결';
+        case 'lucky': return '🍀 초행운';
+        case 'autoGold': return '🪙 골드 연금술';
+        case 'gravity': return '🌌 유체 이탈 (장애물 통과)';
+        default: return '✨ 특수효과';
     }
 }
 
 function applyPhaserBuffVisuals(type) {
     if (!gameInstance) return;
     
-    const worldScene = gameInstance.scene.getScene('WorldScene');
-    const indoorScene = gameInstance.scene.getScene('IndoorScene');
-    const fantasyScene = gameInstance.scene.getScene('FantasyForestScene');
-    
-    const activeScene = [worldScene, indoorScene, fantasyScene].find(s => s && s.sys.isActive());
+    const activeScene = getActiveScene();
     if (!activeScene || !activeScene.player) return;
     
     // 플레이어 기본 형태 초기화
     activeScene.player.setScale(1);
+    activeScene.player.setAlpha(1);
     activeScene.player.clearTint();
+    
+    if (onBoat) {
+        activeScene.player.setTint(0x38bdf8); // Sky blue boat tint
+    }
     
     if (type === 'giant') {
         activeScene.player.setScale(2.2);
     } else if (type === 'mini') {
         activeScene.player.setScale(0.5);
     } else if (type === 'shield') {
-        activeScene.player.setTint(0x67e8f9); // Cyan
+        activeScene.player.setTint(0x67e8f9);
     } else if (type === 'boost') {
-        activeScene.player.setTint(0xfca5a5); // Light Red
+        activeScene.player.setTint(0xfca5a5);
     } else if (type === 'magnet') {
-        activeScene.player.setTint(0xfef08a); // Light Yellow
+        activeScene.player.setTint(0xfef08a);
+    } else if (type === 'invisible') {
+        activeScene.player.setAlpha(0.25);
+    } else if (type === 'freeze') {
+        activeScene.player.setTint(0xa5f3fc);
+    } else if (type === 'lucky') {
+        activeScene.player.setTint(0x86efac);
+    } else if (type === 'autoGold') {
+        activeScene.player.setTint(0xfcd34d); // Shiny gold tint
+    } else if (type === 'gravity') {
+        activeScene.player.setAlpha(0.6); // Semitransparent
+        activeScene.player.setTint(0xc084fc); // Purple tint
     }
 }
 
 // 매 1초마다 버프 타이머 업데이트 및 만료 처리
+let passiveGoldTimer = 0;
+let starWandTimer = 0;
+
 setInterval(() => {
+    // 대시 쿨다운 감소
+    if (dashCooldown > 0) {
+        dashCooldown = Math.max(0, dashCooldown - 1);
+        updateDashButtonCooldown();
+    }
+
+    // 천사 링 패시브 골드 지급 (5초마다 +2G)
+    if (currentUser && currentUser.equipped.includes('item_halo')) {
+        passiveGoldTimer++;
+        if (passiveGoldTimer >= 5) {
+            passiveGoldTimer = 0;
+            currentUser.gold += 2;
+            syncCurrentUser();
+            
+            const activeScene = getActiveScene();
+            if (activeScene && activeScene.player) {
+                const fText = activeScene.add.text(activeScene.player.x, activeScene.player.y - 18, `+2G 👼`, {
+                    fontFamily: 'Galmuri9, monospace',
+                    fontSize: '10px',
+                    color: '#e0f2fe',
+                    stroke: '#0369a1',
+                    strokeThickness: 2
+                });
+                fText.setOrigin(0.5, 0.5);
+                fText.setDepth(20000);
+                activeScene.tweens.add({
+                    targets: fText,
+                    y: activeScene.player.y - 48,
+                    alpha: 0,
+                    duration: 800,
+                    onComplete: () => fText.destroy()
+                });
+            }
+        }
+    }
+
+    // 별빛 지팡이 패시브 스폰 (15초마다 동전 1개 추가 생성)
+    if (currentUser && currentUser.equipped.includes('item_star_wand')) {
+        starWandTimer++;
+        if (starWandTimer >= 15) {
+            starWandTimer = 0;
+            const activeScene = getActiveScene();
+            if (activeScene && activeScene.scene.key === 'WorldScene') {
+                activeScene.spawnRandomCoin();
+                showHUDMessage('⭐ 별빛 지팡이가 하늘의 별을 하나 떨어뜨렸습니다!');
+            } else if (activeScene && activeScene.scene.key === 'FantasyForestScene') {
+                activeScene.spawnMagicalStar();
+                showHUDMessage('⭐ 별빛 지팡이가 숲속에 별을 하나 소환했습니다!');
+            }
+        }
+    }
+
     if (activeBuffs.timer > 0) {
         activeBuffs.timer--;
+        
+        // 골드 연금술 버프 처리 (매초 +5G)
+        if (activeBuffs.autoGold) {
+            if (currentUser) {
+                currentUser.gold += 5;
+                syncCurrentUser();
+                
+                const activeScene = getActiveScene();
+                if (activeScene && activeScene.player) {
+                    const fText = activeScene.add.text(activeScene.player.x, activeScene.player.y - 15, `+5G 🪙`, {
+                        fontFamily: 'Galmuri9, monospace',
+                        fontSize: '10px',
+                        color: '#fbbf24',
+                        stroke: '#000000',
+                        strokeThickness: 2
+                    });
+                    fText.setOrigin(0.5, 0.5);
+                    fText.setDepth(20000);
+                    activeScene.tweens.add({
+                        targets: fText,
+                        y: activeScene.player.y - 45,
+                        alpha: 0,
+                        duration: 800,
+                        onComplete: () => fText.destroy()
+                    });
+                }
+            }
+        }
+
         updateBuffHUD();
         
         if (activeBuffs.timer === 0) {
@@ -3402,6 +3969,7 @@ class IndoorScene extends Phaser.Scene {
     init(data) {
         this.indoorType = data.type || 'cozy_home';
         this.parentCoords = data.parentCoords || { x: 30, y: 34 };
+        this.isInteracting = false;
     }
 
     create() {
@@ -3447,7 +4015,10 @@ class IndoorScene extends Phaser.Scene {
         // 플레이어 배치
         this.player = this.physics.add.sprite(startX + 5 * TILE_SIZE + 16, startY + 6 * TILE_SIZE + 16, 'player', 'up');
         this.player.body.setCircle(8, 8, 16);
-        this.physics.add.collider(this.player, this.staticObstacles);
+        this.physics.add.collider(this.player, this.staticObstacles, null, () => {
+            if (activeBuffs.gravity) return false;
+            return true;
+        }, this);
 
         // 키 세팅
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -3460,6 +4031,10 @@ class IndoorScene extends Phaser.Scene {
 
         this.input.keyboard.on('keydown-SPACE', () => {
             this.handleInteraction();
+        });
+
+        this.input.keyboard.on('keydown-SHIFT', () => {
+            triggerDash(this);
         });
 
         this.spawnIndoorNPC(startX, startY);
@@ -3550,14 +4125,23 @@ class IndoorScene extends Phaser.Scene {
     update() {
         if (!currentUser) return;
         
-        const worldScene = gameInstance.scene.getScene('WorldScene');
-        if (worldScene.isInteracting) {
+        // IndoorScene 자체 isInteracting 상태 사용 (WorldScene 오참 X)
+        if (this.isInteracting) {
             this.player.setVelocity(0);
             return;
         }
 
-        // 버프 및 러닝슈즈 속도 설정
+        // 대시 중 처리
+        if (dashActiveTimer > 0) {
+            dashActiveTimer -= this.game.loop.delta;
+            this.player.setVelocity(dashDirX * 320, dashDirY * 320);
+            this.player.setDepth(this.player.y);
+            return;
+        }
+
+        // 버프 및 아이템 장착 여부에 따른 이동속도 세팅
         let speed = currentUser.equipped.includes('item_shoes') ? 180 : 120;
+        if (currentUser.equipped.includes('item_cat')) speed += 30; // 고양이 꼬리 +30속도
         if (activeBuffs.boost) speed = 260;
         else if (activeBuffs.giant) speed = 200;
         
@@ -3594,23 +4178,38 @@ class IndoorScene extends Phaser.Scene {
         if (currentUser.equipped.includes('item_aura_spark') && this.time.now % 10 < 3) {
             this.spawnElectricSpark(this.player.x, this.player.y);
         }
+        if (currentUser.equipped.includes('item_aura_fire') && this.time.now % 10 < 3) {
+            this.spawnFireSpark(this.player.x, this.player.y);
+        }
+        if (currentUser.equipped.includes('item_aura_ice') && this.time.now % 10 < 3) {
+            this.spawnIceSpark(this.player.x, this.player.y);
+        }
 
-        // 퇴장 문 감지 (방 하단 출구)
+        // IndoorScene 퇴장 문 감지
         const roomSize = 10;
         const startX = 5 * TILE_SIZE;
         const startY = 3 * TILE_SIZE;
-        const exitX = startX + Math.floor(roomSize / 2) * TILE_SIZE + 16;
-        const exitY = startY + (roomSize - 1) * TILE_SIZE + 16;
+        const doorX = startX + Math.floor(roomSize / 2) * TILE_SIZE + 16;
+        const doorY = startY + (roomSize - 1) * TILE_SIZE + 16;
         
-        if (Phaser.Math.Distance.Between(this.player.x, this.player.y, exitX, exitY) < 20) {
+        const distToDoor = Phaser.Math.Distance.Between(this.player.x, this.player.y, doorX, doorY + 24);
+        if (distToDoor < 28) {
+            this.isInteracting = true;
             this.cameras.main.fadeOut(200);
             this.time.delayedCall(200, () => {
                 this.scene.stop('IndoorScene');
                 this.scene.start('WorldScene');
                 
-                worldScene.cameras.main.fadeIn(200);
-                worldScene.player.setPosition(this.parentCoords.x * TILE_SIZE + 48, (this.parentCoords.y + 3) * TILE_SIZE + 16);
-                worldScene.isInteracting = false;
+                setTimeout(() => {
+                    const worldScene = gameInstance.scene.getScene('WorldScene');
+                    if (worldScene && worldScene.player) {
+                        worldScene.player.setPosition(
+                            this.parentCoords.x * TILE_SIZE + 16,
+                            this.parentCoords.y * TILE_SIZE + 48
+                        );
+                        worldScene.isInteracting = false;
+                    }
+                }, 300);
             });
         }
 
@@ -3625,13 +4224,18 @@ class IndoorScene extends Phaser.Scene {
     }
 
     handleInteraction() {
-        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.npcSprite.x, this.npcSprite.y);
-        if (dist < 45) {
-            const worldScene = gameInstance.scene.getScene('WorldScene');
-            worldScene.isInteracting = true;
-            worldScene.activeNpc = this.npcData;
-            
-            // 일반 대화 시작
+        const dialogueBox = document.getElementById('dialogue-box');
+        if (!dialogueBox.classList.contains('hidden')) {
+            progressDialogue();
+            return;
+        }
+        
+        const dist = this.npcSprite ? Phaser.Math.Distance.Between(
+            this.player.x, this.player.y, this.npcSprite.x, this.npcSprite.y
+        ) : 999;
+        
+        if (dist < 60 && this.npcData) {
+            this.isInteracting = true;
             startDialogue(this.npcData);
         }
     }
@@ -3655,6 +4259,52 @@ class IndoorScene extends Phaser.Scene {
             scale: 1.5,
             alpha: 0,
             duration: 300,
+            onComplete: () => spark.destroy()
+        });
+    }
+
+    spawnFireSpark(px, py) {
+        const angle = (this.time.now / 120) % (Math.PI * 2);
+        const radius = 24 * (activeBuffs.giant ? 2.2 : (activeBuffs.mini ? 0.5 : 1));
+        const sx = px + Math.cos(angle) * radius;
+        const sy = py + Math.sin(angle) * radius;
+        
+        const spark = this.add.text(sx, sy, '🔥', {
+            fontFamily: 'monospace',
+            fontSize: activeBuffs.giant ? '14px' : '9px',
+            color: '#f97316'
+        });
+        spark.setOrigin(0.5, 0.5);
+        spark.setDepth(py + 10);
+        
+        this.tweens.add({
+            targets: spark,
+            scale: 1.6,
+            alpha: 0,
+            duration: 350,
+            onComplete: () => spark.destroy()
+        });
+    }
+
+    spawnIceSpark(px, py) {
+        const angle = -(this.time.now / 180) % (Math.PI * 2);
+        const radius = 24 * (activeBuffs.giant ? 2.2 : (activeBuffs.mini ? 0.5 : 1));
+        const sx = px + Math.cos(angle) * radius;
+        const sy = py + Math.sin(angle) * radius;
+        
+        const spark = this.add.text(sx, sy, '❄️', {
+            fontFamily: 'monospace',
+            fontSize: activeBuffs.giant ? '12px' : '8px',
+            color: '#38bdf8'
+        });
+        spark.setOrigin(0.5, 0.5);
+        spark.setDepth(py + 10);
+        
+        this.tweens.add({
+            targets: spark,
+            scale: 1.4,
+            alpha: 0,
+            duration: 400,
             onComplete: () => spark.destroy()
         });
     }
@@ -3726,7 +4376,10 @@ class FantasyForestScene extends Phaser.Scene {
         // 플레이어 생성
         this.player = this.physics.add.sprite(20 * TILE_SIZE + 16, 20 * TILE_SIZE + 16, 'player', 'down');
         this.player.body.setCircle(8, 8, 16);
-        this.physics.add.collider(this.player, this.staticObstacles);
+        this.physics.add.collider(this.player, this.staticObstacles, null, () => {
+            if (activeBuffs.gravity) return false;
+            return true;
+        }, this);
 
         // 카메라 바운드 및 추적
         this.cameras.main.setBounds(0, 0, magicalMapSize * TILE_SIZE, magicalMapSize * TILE_SIZE);
@@ -3739,6 +4392,10 @@ class FantasyForestScene extends Phaser.Scene {
             down: Phaser.Input.Keyboard.KeyCodes.S,
             left: Phaser.Input.Keyboard.KeyCodes.A,
             right: Phaser.Input.Keyboard.KeyCodes.D
+        });
+
+        this.input.keyboard.on('keydown-SHIFT', () => {
+            triggerDash(this);
         });
 
         // 타운 복귀용 리턴 포탈
@@ -3761,13 +4418,13 @@ class FantasyForestScene extends Phaser.Scene {
         this.starsGroup = this.physics.add.group();
         this.physics.add.overlap(this.player, this.starsGroup, this.collectStar, null, this);
 
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 12; i++) {
             this.spawnMagicalStar();
         }
 
-        // 12초 주기 별 생성 루프
+        // 6초 주기 별 생성 루프
         this.time.addEvent({
-            delay: 12000,
+            delay: 6000,
             callback: this.spawnMagicalStar,
             callbackScope: this,
             loop: true
@@ -3777,16 +4434,16 @@ class FantasyForestScene extends Phaser.Scene {
         this.boxesGroup = this.physics.add.group();
         this.physics.add.overlap(this.player, this.boxesGroup, this.collectBox, null, this);
         this.time.addEvent({
-            delay: 45000,
+            delay: 18000,
             callback: this.spawnForestBox,
             callbackScope: this,
             loop: true
         });
-        this.spawnForestBox();
+        for (let i = 0; i < 3; i++) this.spawnForestBox();
     }
 
     spawnForestBox() {
-        if (this.boxesGroup.getChildren().length >= 2) return;
+        if (this.boxesGroup.getChildren().length >= 6) return;
         let rx = Phaser.Math.Between(3, 36);
         let ry = Phaser.Math.Between(3, 36);
         const px = rx * TILE_SIZE + 16;
@@ -3810,7 +4467,7 @@ class FantasyForestScene extends Phaser.Scene {
     }
 
     spawnMagicalStar() {
-        if (this.starsGroup.getChildren().length >= 12) return;
+        if (this.starsGroup.getChildren().length >= 25) return;
         let cx = Phaser.Math.Between(2, 37);
         let cy = Phaser.Math.Between(2, 37);
         const px = cx * TILE_SIZE + 16;
@@ -3835,7 +4492,14 @@ class FantasyForestScene extends Phaser.Scene {
         playSynthDing();
 
         let amount = 20; // 숲 마법의 별은 20G 지급!
-        if (activeBuffs.shield) amount = 40; // 골드 2배 버프 적용 시 40G!
+        if (currentUser && currentUser.equipped.includes('item_scarf')) {
+            amount = 35; // 빨간 목도리 장착 시 35G!
+        }
+        if (activeBuffs.shield) amount *= 2; // 골드 2배 버프 적용
+        if (currentUser && currentUser.equipped.includes('item_lucky_coin')) {
+            amount = Math.floor(amount * 1.5); // 행운의 동전 +50%
+        }
+        if (activeBuffs.lucky) amount = Math.floor(amount * 2.5); // 초행운 버프
 
         if (currentUser) {
             currentUser.gold += amount;
@@ -3869,7 +4533,20 @@ class FantasyForestScene extends Phaser.Scene {
             return;
         }
 
+        // 대시 중 처리
+        if (dashActiveTimer > 0) {
+            dashActiveTimer -= this.game.loop.delta;
+            this.player.setVelocity(dashDirX * 320, dashDirY * 320);
+            if (this.time.now % 2 === 0) {
+                worldScene.spawnTrailParticle(this.player.x, this.player.y + 12);
+            }
+            this.player.setDepth(this.player.y);
+            return;
+        }
+
+        // 버프 및 아이템 장착 여부에 따른 이동속도 세팅
         let speed = currentUser.equipped.includes('item_shoes') ? 180 : 120;
+        if (currentUser.equipped.includes('item_cat')) speed += 30; // 고양이 꼬리 +30속도
         if (activeBuffs.boost) speed = 260;
         else if (activeBuffs.giant) speed = 200;
 
@@ -3912,6 +4589,12 @@ class FantasyForestScene extends Phaser.Scene {
         }
         if (currentUser.equipped.includes('item_aura_spark') && this.time.now % 10 < 3) {
             worldScene.spawnElectricSpark(this.player.x, this.player.y);
+        }
+        if (currentUser.equipped.includes('item_aura_fire') && this.time.now % 10 < 3) {
+            worldScene.spawnFireSpark(this.player.x, this.player.y);
+        }
+        if (currentUser.equipped.includes('item_aura_ice') && this.time.now % 10 < 3) {
+            worldScene.spawnIceSpark(this.player.x, this.player.y);
         }
 
         // 자석 효과 (자석 버프 활성화 시 별 끌어오기)

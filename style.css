@@ -618,6 +618,14 @@ body {
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 
+.mobile-action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    pointer-events: auto;
+}
+
 #action-button {
     width: 64px;
     height: 64px;
@@ -638,6 +646,29 @@ body {
 
 #action-button:active {
     background: var(--primary-hover);
+    transform: scale(0.95);
+}
+
+#dash-button {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: #a855f7;
+    border: 2px solid #fff;
+    color: #fff;
+    font-family: var(--font-retro);
+    font-size: 12px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+    pointer-events: auto;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+}
+
+#dash-button:active {
+    background: #9333ea;
     transform: scale(0.95);
 }
 
