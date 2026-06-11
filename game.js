@@ -573,6 +573,8 @@ function generateCharacterTextureCache(scene, key, style, equipped = []) {
 
 // 월드 맵 타일 및 아이템 텍스처 생성
 function generateMapTiles(scene) {
+    if (scene.textures.exists('tile-grass')) return;
+
     // [기존 타일 생성 유지]
     const grass = scene.textures.createCanvas('tile-grass', TILE_SIZE, TILE_SIZE);
     const gCtx = grass.context;
@@ -605,6 +607,28 @@ function generateMapTiles(scene) {
     wCtx.fillStyle = '#29b6f6';
     wCtx.fillRect(4, 8, 12, 2);
     water.refresh();
+
+    const boat = scene.textures.createCanvas('obj-boat', 32, 32);
+    const btCtx = boat.context;
+    btCtx.fillStyle = '#8b5a2b'; // Wood color
+    btCtx.beginPath();
+    btCtx.ellipse(16, 16, 14, 10, 0, 0, Math.PI * 2);
+    btCtx.fill();
+    btCtx.fillStyle = '#fef08a'; // Inner boat
+    btCtx.beginPath();
+    btCtx.ellipse(16, 16, 10, 6, 0, 0, Math.PI * 2);
+    btCtx.fill();
+    boat.refresh();
+
+    const dock = scene.textures.createCanvas('obj-dock', 32, 32);
+    const dkCtx = dock.context;
+    dkCtx.fillStyle = '#5d4037';
+    dkCtx.fillRect(0, 0, 32, 32);
+    dkCtx.fillStyle = '#3e2723';
+    dkCtx.fillRect(0, 6, 32, 2);
+    dkCtx.fillRect(0, 16, 32, 2);
+    dkCtx.fillRect(0, 26, 32, 2);
+    dock.refresh();
 
     const tree = scene.textures.createCanvas('obj-tree', 32, 48);
     const tCtx = tree.context;
@@ -913,7 +937,7 @@ class WorldScene extends Phaser.Scene {
         this.player.body.setCircle(8, 8, 16); // 발밑 원형 충돌 판정
 
         this.physics.add.collider(this.player, this.staticObstacles, null, (player, obstacle) => {
-            if (activeBuffs.gravity) return false;
+            if (activeBuffs.gravity || activeBuffs.ghost) return false;
             if (currentUser && currentUser.equipped.includes('item_balloon') && obstacle.isWater) return false;
             if (activeBuffs.freeze && obstacle.isWater) return false;
             if (onBoat && obstacle.isWater) return false;
@@ -993,16 +1017,16 @@ class WorldScene extends Phaser.Scene {
         this.boxesGroup = this.physics.add.group();
         this.physics.add.overlap(this.player, this.boxesGroup, this.collectBox, null, this);
         
-        // 15초마다 돌발 선물 상자 스폰
+        // 8초마다 돌발 선물 상자 스폰
         this.time.addEvent({
-            delay: 15000,
+            delay: 8000,
             callback: this.spawnRandomBox,
             callbackScope: this,
             loop: true
         });
         
-        // 시작 즉시 선물 상자 3개 스폰 시도
-        for (let i = 0; i < 3; i++) this.spawnRandomBox();
+        // 시작 즉시 선물 상자 10개 스폰 시도
+        for (let i = 0; i < 10; i++) this.spawnRandomBox();
 
         // 실시간 지도 동기화 루프
         this.time.addEvent({
@@ -1043,6 +1067,9 @@ class WorldScene extends Phaser.Scene {
             { x: 60, y: 60, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
             // 동쪽 광장 분수대
             { x: 49, y: 48, type: 'obj-fountain', cx: 32, cy: 32, cw: 56, ch: 40, co: 8 },
+            // 선착장 (보트 탑승 위치)
+            { x: 40, y: 12, type: 'obj-dock', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 },
+            { x: 73, y: 20, type: 'obj-dock', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 },
             // 가로등
             { x: 28, y: 4, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
             { x: 28, y: 12, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
@@ -1072,30 +1099,15 @@ class WorldScene extends Phaser.Scene {
             const image = this.add.image(px, py, s.type);
             image.setDepth(py);
 
-            const zone = this.add.rectangle(px, py + s.co, s.cw, s.ch);
-            this.physics.add.existing(zone, true);
-            zone.setVisible(false);
-            this.staticObstacles.add(zone);
+            if (s.type !== 'obj-dock') {
+                const zone = this.add.rectangle(px, py + s.co, s.cw, s.ch);
+                this.physics.add.existing(zone, true);
+                zone.setVisible(false);
+                this.staticObstacles.add(zone);
+            }
         });
 
-        // 보트 선착장 시각화 (호수 북동쪽)
-        this.boatDock = this.add.rectangle(
-            40 * TILE_SIZE + 16, 12 * TILE_SIZE + 16,
-            TILE_SIZE * 2, TILE_SIZE,
-            0x78350f
-        );
-        this.boatDock.setDepth(10);
-        const dockText = this.add.text(40 * TILE_SIZE + 16, 12 * TILE_SIZE - 6, '⛵ 선착장', {
-            fontFamily: 'Galmuri9, monospace', fontSize: '8px',
-            color: '#ffd54f', stroke: '#000', strokeThickness: 2
-        }).setOrigin(0.5, 1).setDepth(20);
 
-        // 동쪽 호수 선착장
-        this.add.rectangle(73 * TILE_SIZE + 16, 20 * TILE_SIZE + 16, TILE_SIZE * 2, TILE_SIZE, 0x78350f).setDepth(10);
-        this.add.text(73 * TILE_SIZE + 16, 20 * TILE_SIZE - 6, '⛵ 선착장', {
-            fontFamily: 'Galmuri9, monospace', fontSize: '8px',
-            color: '#ffd54f', stroke: '#000', strokeThickness: 2
-        }).setOrigin(0.5, 1).setDepth(20);
 
         // 본래 울타리
         for (let y = 5; y <= 23; y++) {
@@ -1276,7 +1288,7 @@ class WorldScene extends Phaser.Scene {
         box.destroy();
         playSynthDing();
         
-        const effects = ['giant', 'mini', 'magnet', 'shield', 'boost', 'invisible', 'freeze', 'lucky', 'autoGold', 'gravity'];
+        const effects = ['giant', 'mini', 'magnet', 'shield', 'boost', 'invisible', 'freeze', 'lucky', 'autoGold', 'gravity', 'ghost', 'teleport', 'confusion', 'speedDown'];
         const chosenEffect = Phaser.Utils.Array.GetRandom(effects);
         
         activateBuff(chosenEffect);
@@ -1302,7 +1314,7 @@ class WorldScene extends Phaser.Scene {
 
     // 돌발 선물 상자 스폰
     spawnRandomBox() {
-        if (this.boxesGroup.getChildren().length >= 8) return;
+        if (this.boxesGroup.getChildren().length >= 20) return;
         
         let found = false;
         let cx, cy;
@@ -1468,26 +1480,43 @@ class WorldScene extends Phaser.Scene {
         // 버프 및 아이템 장착 여부에 따른 이동속도 세팅
         let speed = currentUser.equipped.includes('item_shoes') ? 180 : 120;
         if (currentUser.equipped.includes('item_cat')) speed += 30; // 고양이 꼬리 +30속도
+        if (onBoat) speed = 150;
         if (activeBuffs.boost) speed = 260;
         else if (activeBuffs.giant) speed = 200;
+        
+        if (activeBuffs.speedDown) speed *= 0.4;
         
         this.player.setVelocity(0);
 
         let dx = 0;
         let dy = 0;
 
-        if (this.cursors.left.isDown || this.wasd.left.isDown) {
+        let leftDown = this.cursors.left.isDown || this.wasd.left.isDown;
+        let rightDown = this.cursors.right.isDown || this.wasd.right.isDown;
+        let upDown = this.cursors.up.isDown || this.wasd.up.isDown;
+        let downDown = this.cursors.down.isDown || this.wasd.down.isDown;
+
+        if (activeBuffs.confusion) {
+            let temp = leftDown;
+            leftDown = rightDown;
+            rightDown = temp;
+            temp = upDown;
+            upDown = downDown;
+            downDown = temp;
+        }
+
+        if (leftDown) {
             dx = -1;
             this.player.setFrame('left');
-        } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
+        } else if (rightDown) {
             dx = 1;
             this.player.setFrame('right');
         }
 
-        if (this.cursors.up.isDown || this.wasd.up.isDown) {
+        if (upDown) {
             dy = -1;
             this.player.setFrame('up');
-        } else if (this.cursors.down.isDown || this.wasd.down.isDown) {
+        } else if (downDown) {
             dy = 1;
             this.player.setFrame('down');
         }
@@ -1495,6 +1524,20 @@ class WorldScene extends Phaser.Scene {
         if (dx !== 0 && dy !== 0) {
             dx *= 0.7071;
             dy *= 0.7071;
+        }
+
+        // Boat restriction: prevent moving into non-water tiles
+        if (onBoat) {
+            const nextX = this.player.x + dx * speed * (this.game.loop.delta / 1000);
+            const nextY = this.player.y + dy * speed * (this.game.loop.delta / 1000);
+            const gridX = Math.floor(nextX / TILE_SIZE);
+            const gridY = Math.floor(nextY / TILE_SIZE);
+            const isDock = (gridX >= 39 && gridX <= 41 && gridY >= 11 && gridY <= 13) || 
+                           (gridX >= 72 && gridX <= 74 && gridY >= 19 && gridY <= 21);
+            if (mapData[gridY] && mapData[gridY][gridX] !== 3 && !isDock) {
+                dx = 0;
+                dy = 0;
+            }
         }
 
         this.player.setVelocity(dx * speed, dy * speed);
@@ -3630,6 +3673,9 @@ let activeBuffs = {
     lucky: false,
     autoGold: false,
     gravity: false,
+    ghost: false,
+    confusion: false,
+    speedDown: false,
     timer: 0
 };
 
@@ -3695,6 +3741,38 @@ function updateDashButtonCooldown() {
 }
 
 function activateBuff(type) {
+    if (type === 'teleport') {
+        let cx = 30, cy = 34;
+        for (let attempts = 0; attempts < 50; attempts++) {
+            const tx = Math.floor(Math.random() * (MAP_WIDTH - 4)) + 2;
+            const ty = Math.floor(Math.random() * (MAP_HEIGHT - 4)) + 2;
+            if (obstaclesMap[ty][tx] === 0 && mapData[ty][tx] !== 3) {
+                cx = tx; cy = ty;
+                break;
+            }
+        }
+        if (gameInstance) {
+            const worldScene = gameInstance.scene.getScene('WorldScene');
+            if (worldScene && worldScene.player) {
+                worldScene.cameras.main.flash(300, 255, 255, 255);
+                worldScene.player.setPosition(cx * 32 + 16, cy * 32 + 16);
+            }
+        }
+        showHUDMessage('✨ 무작위 위치로 순간이동 되었습니다!');
+        return; // No duration needed
+    }
+
+    if (type === 'lucky') {
+        const bonus = Phaser.Math.Between(50, 200);
+        showHUDMessage(`🍀 행운! 잭팟이 터졌습니다! (+${bonus}G)`);
+        if (currentUser) {
+            currentUser.gold += bonus;
+            syncCurrentUser();
+            applyPhaserBuffVisuals('lucky');
+        }
+        return;
+    }
+
     // 이전 버프 해제
     Object.keys(activeBuffs).filter(k => k !== 'timer').forEach(k => activeBuffs[k] = false);
     
@@ -3719,9 +3797,11 @@ function getBuffName(type) {
         case 'boost': return '🚀 초고속 부스터';
         case 'invisible': return '👻 투명인간';
         case 'freeze': return '❄️ 주변 동결';
-        case 'lucky': return '🍀 초행운';
         case 'autoGold': return '🪙 골드 연금술';
         case 'gravity': return '🌌 유체 이탈 (장애물 통과)';
+        case 'ghost': return '👻 유령화 (벽/물 통과)';
+        case 'confusion': return '🌀 혼란 (방향키 반전)';
+        case 'speedDown': return '🐢 거북이 (속도 감소)';
         default: return '✨ 특수효과';
     }
 }
@@ -3732,13 +3812,19 @@ function applyPhaserBuffVisuals(type) {
     const activeScene = getActiveScene();
     if (!activeScene || !activeScene.player) return;
     
-    // 플레이어 기본 형태 초기화
     activeScene.player.setScale(1);
     activeScene.player.setAlpha(1);
     activeScene.player.clearTint();
     
+    if (activeBuffs.ghost) {
+        activeScene.player.setAlpha(0.4);
+    }
+    
     if (onBoat) {
-        activeScene.player.setTint(0x38bdf8); // Sky blue boat tint
+        activeScene.player.setTexture('obj-boat');
+        activeScene.player.setScale(1.2);
+    } else {
+        activeScene.player.setTexture('player');
     }
     
     if (type === 'giant') {
@@ -3755,8 +3841,10 @@ function applyPhaserBuffVisuals(type) {
         activeScene.player.setAlpha(0.25);
     } else if (type === 'freeze') {
         activeScene.player.setTint(0xa5f3fc);
-    } else if (type === 'lucky') {
-        activeScene.player.setTint(0x86efac);
+    } else if (type === 'speedDown') {
+        activeScene.player.setTint(0xa3e635);
+    } else if (type === 'confusion') {
+        activeScene.player.setTint(0xc084fc);
     } else if (type === 'autoGold') {
         activeScene.player.setTint(0xfcd34d); // Shiny gold tint
     } else if (type === 'gravity') {
