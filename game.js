@@ -608,6 +608,14 @@ function generateMapTiles(scene) {
     wCtx.fillRect(4, 8, 12, 2);
     water.refresh();
 
+    const sand = scene.textures.createCanvas('tile-sand', TILE_SIZE, TILE_SIZE);
+    const sCtx = sand.context;
+    sCtx.fillStyle = '#fde68a'; // Sand color
+    sCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    sCtx.fillStyle = '#fcd34d'; // Sand detail
+    sCtx.fillRect(6, 6, 4, 2); sCtx.fillRect(20, 24, 4, 2);
+    sand.refresh();
+
     const boat = scene.textures.createCanvas('obj-boat', 32, 32);
     const btCtx = boat.context;
     btCtx.fillStyle = '#8b5a2b'; // Wood color
@@ -752,102 +760,193 @@ function isInLake(gx, gy) {
 function initMapGrid() {
     mapData = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(0));
     obstaclesMap = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(0));
-    
-    // 꽃 장식 (랜덤)
+
+    // ============================================================
+    // 1. 섬 외곽 바다 + 해변 (Animal Crossing 스타일 더 자연스럽게)
+    // ============================================================
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
-            if (Math.random() < 0.10) mapData[y][x] = 1;
+            // 곽바다
+            if (y < 5 || y > 94 || x < 5 || x > 94) {
+                mapData[y][x] = 3;
+            // 해변 모래사장 - 불규칙적 해안선으로
+            } else if (y < 8 || y > 91 || x < 8 || x > 91) {
+                // 해변은 타일이 일부 작네마 있어서 불규칙하게 모래
+                const noiseVal = Math.sin(x * 0.4 + y * 0.3) + Math.cos(x * 0.3 - y * 0.5);
+                mapData[y][x] = noiseVal > -0.5 ? 4 : 3; // 4=모래, 3=야조마다 바다
+            }
         }
     }
 
-    // 메인 도로 (십자 + 광장)
-    for (let y = 2; y < MAP_HEIGHT - 2; y++) {
-        mapData[y][49] = 2; mapData[y][50] = 2; mapData[y][51] = 2;
-        mapData[y][29] = 2; mapData[y][30] = 2; mapData[y][31] = 2;
+    // ============================================================
+    // 2. 썬 경계선 정리 (일부 구역은 못이 뒤얰든 모양)
+    // ============================================================
+    // 해변 안쪽 포켓: 눇집트 (notch) - 동종 섬에서의 구입 허용
+    for (let y = 89; y < 95; y++) {
+        for (let x = 42; x < 58; x++) {
+            mapData[y][x] = y < 92 ? 4 : 3; // 남쪽 해변 장명 입구
+        }
     }
-    for (let x = 2; x < MAP_WIDTH - 2; x++) {
-        mapData[49][x] = 2; mapData[50][x] = 2; mapData[51][x] = 2;
-        mapData[29][x] = 2; mapData[30][x] = 2; mapData[31][x] = 2;
-    }
-    // 중앙 광장
-    for (let y = 24; y <= 35; y++) {
-        for (let x = 24; x <= 35; x++) mapData[y][x] = 2;
-    }
-    // 동쪽 광장
-    for (let y = 44; y <= 55; y++) {
-        for (let x = 44; x <= 55; x++) mapData[y][x] = 2;
-    }
-    // 북동 골목길
-    for (let y = 5; y < 25; y++) {
-        mapData[y][60] = 2; mapData[y][61] = 2;
-    }
-    // 남쪽 마을 연결로
-    for (let x = 55; x < 85; x++) {
-        mapData[70][x] = 2; mapData[71][x] = 2;
-    }
-    // 북서 공원 산책로
-    for (let y = 5; y < 20; y++) {
-        mapData[y][15] = 2; mapData[y][16] = 2;
-    }
-    for (let x = 5; x < 20; x++) {
-        mapData[15][x] = 2; mapData[16][x] = 2;
+    // 동쪽 해변 방파제: 직선 외곽이 아닌 구비진 자연 해안
+    for (let y = 30; y < 65; y++) {
+        const beachExtend = Math.floor(Math.sin(y * 0.25) * 2);
+        for (let x = 91 + beachExtend; x < 95; x++) {
+            if (x >= 0 && x < MAP_WIDTH) mapData[y][x] = x < 93 ? 4 : 3;
+        }
     }
 
-    // 호수들 (obstacle=1 설정, 보트 없으면 통과 불가)
-    for (const lake of LAKE_REGIONS) {
-        for (let y = Math.floor(lake.cy - lake.radius - 2); y < Math.ceil(lake.cy + lake.radius + 2); y++) {
-            for (let x = Math.floor(lake.cx - lake.radius - 2); x < Math.ceil(lake.cx + lake.radius + 2); x++) {
-                if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
-                    if (Math.abs(y - lake.cy) + Math.abs(x - lake.cx) < lake.radius) {
-                        mapData[y][x] = 3; obstaclesMap[y][x] = 1;
-                    }
+    // ============================================================
+    // 3. 세 개의 주요 강줄기 (Animal Crossing 스타일)
+    // ============================================================
+    // [강 A] 선형 강 - 맵을 야르게 완전 가로지름 (y=35 기준)
+    for (let x = 8; x < 92; x++) {
+        const wy = 35 + Math.floor(Math.sin(x * 0.12) * 3);
+        for (let dy = -2; dy <= 2; dy++) {
+            const ty = wy + dy;
+            if (ty >= 8 && ty < 92) mapData[ty][x] = 3;
+        }
+    }
+    // [강 A] 장론에 북쪽 상연 (y=8에서 y=35까지)
+    for (let y = 8; y < 35; y++) {
+        const wx = 35 + Math.floor(Math.sin(y * 0.18) * 3);
+        for (let dx = -2; dx <= 2; dx++) {
+            const tx = wx + dx;
+            if (tx >= 8 && tx < 92) mapData[y][tx] = 3;
+        }
+    }
+
+    // [강 B] 동쪽 지류: 송쪽 하뢨으로 흥르는 곡선 강
+    for (let y = 8; y < 92; y++) {
+        const wx = 65 + Math.floor(Math.sin(y * 0.15) * 4);
+        for (let dx = -2; dx <= 2; dx++) {
+            const tx = wx + dx;
+            if (tx >= 8 && tx < 92) mapData[y][tx] = 3;
+        }
+    }
+
+    // ============================================================
+    // 4. 다리들 (강을 건널 도로)
+    // ============================================================
+    const bridges = [
+        // 강 A 가로 다리들 (y=35 기준)
+        { ax: 18, ay: 33, bx: 18, by: 37, horiz: true },
+        { ax: 45, ay: 33, bx: 45, by: 37, horiz: true },
+        { ax: 75, ay: 33, bx: 75, by: 37, horiz: true },
+        // 강 A 세로 다리들 (x=35 기준)
+        { ax: 33, ay: 18, bx: 37, by: 18, horiz: false },
+        { ax: 33, ay: 28, bx: 37, by: 28, horiz: false },
+        // 강 B 세로 다리들
+        { ax: 63, ay: 25, bx: 67, by: 25, horiz: false },
+        { ax: 63, ay: 55, bx: 67, by: 55, horiz: false },
+        { ax: 63, ay: 78, bx: 67, by: 78, horiz: false },
+    ];
+    bridges.forEach(b => {
+        if (b.horiz) {
+            // 가로 다리
+            const by = b.ay;
+            for (let y = b.ay; y <= b.by; y++) {
+                for (let bx = b.ax - 3; bx <= b.ax + 3; bx++) {
+                    if (bx >= 0 && bx < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) mapData[y][bx] = 2;
+                }
+            }
+        } else {
+            // 세로 다리
+            const bx = b.ax;
+            for (let x = b.ax; x <= b.bx; x++) {
+                for (let by2 = b.ay - 3; by2 <= b.ay + 3; by2++) {
+                    if (x >= 0 && x < MAP_WIDTH && by2 >= 0 && by2 < MAP_HEIGHT) mapData[by2][x] = 2;
                 }
             }
         }
+    });
+
+    // ============================================================
+    // 5. 도로망 - 루프 형태의 복잡한 바둑판 도로
+    // ============================================================
+    // [강 A 북쪽 식민지 도로망]
+    // 주간선: 강 제일 낙쪽과 랜소 5는 4열 얰결
+    for (let x = 10; x < 33; x++) { mapData[10][x] = 2; mapData[11][x] = 2; } // 북서 수평로
+    for (let x = 10; x < 33; x++) { mapData[20][x] = 2; mapData[21][x] = 2; } // 중앙 수평로
+    for (let x = 10; x < 33; x++) { mapData[29][x] = 2; mapData[30][x] = 2; } // 식민지 하단로
+    for (let y = 10; y < 30; y++) { mapData[y][10] = 2; mapData[y][11] = 2; } // 서쪽 수직로
+    for (let y = 10; y < 30; y++) { mapData[y][22] = 2; mapData[y][23] = 2; } // 중간 수직로
+    for (let y = 10; y < 30; y++) { mapData[y][32] = 2; mapData[y][33] = 2; } // 동쪽 수직로 (강 바로 앞)
+
+    // [중심부 도로 광장 얰결로]
+    for (let x = 10; x < 63; x++) { mapData[50][x] = 2; mapData[51][x] = 2; } // 중심 수평 주요 도로
+    for (let x = 10; x < 63; x++) { mapData[60][x] = 2; mapData[61][x] = 2; } 
+    for (let x = 10; x < 63; x++) { mapData[40][x] = 2; mapData[41][x] = 2; } 
+    for (let y = 38; y < 90; y++) { mapData[y][10] = 2; mapData[y][11] = 2; } // 서선
+    for (let y = 38; y < 90; y++) { mapData[y][24] = 2; mapData[y][25] = 2; } // 중심서 1
+    for (let y = 38; y < 90; y++) { mapData[y][44] = 2; mapData[y][45] = 2; } // 중심서 2 (강 B 앞)
+
+    // [강 B 동쪽 구역 도로망]
+    for (let x = 67; x < 91; x++) { mapData[18][x] = 2; mapData[19][x] = 2; }
+    for (let x = 67; x < 91; x++) { mapData[30][x] = 2; mapData[31][x] = 2; }
+    for (let x = 67; x < 91; x++) { mapData[45][x] = 2; mapData[46][x] = 2; }
+    for (let x = 67; x < 91; x++) { mapData[58][x] = 2; mapData[59][x] = 2; }
+    for (let x = 67; x < 91; x++) { mapData[72][x] = 2; mapData[73][x] = 2; }
+    for (let x = 67; x < 91; x++) { mapData[85][x] = 2; mapData[86][x] = 2; }
+    for (let y = 18; y < 90; y++) { mapData[y][67] = 2; mapData[y][68] = 2; } // 동선
+    for (let y = 18; y < 90; y++) { mapData[y][81] = 2; mapData[y][82] = 2; } // 동동선
+    for (let y = 18; y < 90; y++) { mapData[y][90] = 2; mapData[y][91] = 2; } // 동 가장자리
+
+    // [남식민지 도로망]
+    for (let x = 10; x < 92; x++) { mapData[80][x] = 2; mapData[81][x] = 2; } // 남쪽 주도로
+    for (let x = 10; x < 92; x++) { mapData[88][x] = 2; mapData[89][x] = 2; } // 남단로
+
+    // ============================================================
+    // 6. 해변광장 + 중안소 광장 (단단한 번화 버네워)
+    // ============================================================
+    for (let y = 48; y <= 54; y++) { // 중앙 주광장
+        for (let x = 26; x <= 42; x++) mapData[y][x] = 2;
+    }
+    for (let y = 83; y <= 87; y++) { // 남쪽 광장
+        for (let x = 45; x <= 62; x++) mapData[y][x] = 2;
     }
 
-    // 남서쪽 연못 (소형)
-    for (let y = 43; y < 50; y++) {
-        for (let x = 7; x < 16; x++) {
-            if (Math.abs(y - 46) + Math.abs(x - 11) < 5) {
-                mapData[y][x] = 3; obstaclesMap[y][x] = 1;
-            }
-        }
-    }
-    // 북서쪽 공원 연못
-    for (let y = 6; y < 13; y++) {
-        for (let x = 6; x < 13; x++) {
-            if (Math.abs(y - 9.5) + Math.abs(x - 9.5) < 4) {
-                mapData[y][x] = 3; obstaclesMap[y][x] = 1;
-            }
-        }
-    }
-    // 동쪽 시냇물
-    for (let y = 18; y < 90; y++) {
-        let waveX = 85 + Math.floor(Math.sin(y * 0.35) * 2.5);
-        for (let x = waveX - 1; x <= waveX + 1; x++) {
-            if (x >= 0 && x < MAP_WIDTH) {
-                mapData[y][x] = 3; obstaclesMap[y][x] = 1;
-            }
-        }
-    }
-    // 남부 강
-    for (let x = 5; x < 95; x++) {
-        const waveY = 90 + Math.floor(Math.sin(x * 0.3) * 1.5);
-        for (let dy = -1; dy <= 2; dy++) {
-            const fy = waveY + dy;
-            if (fy >= 0 && fy < MAP_HEIGHT) {
-                mapData[fy][x] = 3; obstaclesMap[fy][x] = 1;
+    // ============================================================
+    // 7. 다양한 콘텐츠 구역으로 꽃 다양하게
+    // ============================================================
+    for (let y = 8; y < 92; y++) {
+        for (let x = 8; x < 92; x++) {
+            if (mapData[y][x] === 0) {
+                const r = Math.random();
+                if (r < 0.07) mapData[y][x] = 1; // 꽃
             }
         }
     }
 
-    // 테두리 벽
-    for (let x = 0; x < MAP_WIDTH; x++) {
-        obstaclesMap[0][x] = 1; obstaclesMap[MAP_HEIGHT - 1][x] = 1;
-    }
+    // ============================================================
+    // 8. 선착장 구역 (dock)
+    // ============================================================
+    // 동쪽 강 B 연접 선착장 (x=65, y=42)
+    for (let x = 62; x <= 66; x++) { mapData[42][x] = 2; mapData[43][x] = 2; }
+    // 남쪽 해변 선착장 (x=50, y=90)
+    for (let y = 88; y <= 92; y++) { mapData[y][49] = 2; mapData[y][50] = 2; mapData[y][51] = 2; }
+
+    // ============================================================
+    // 9. 물 타일 충돌 완벽 적용 (가장 중요)
+    // ============================================================
     for (let y = 0; y < MAP_HEIGHT; y++) {
-        obstaclesMap[y][0] = 1; obstaclesMap[y][MAP_WIDTH - 1] = 1;
+        for (let x = 0; x < MAP_WIDTH; x++) {
+            if (x === 0 || x === MAP_WIDTH - 1 || y === 0 || y === MAP_HEIGHT - 1) {
+                obstaclesMap[y][x] = 1;
+            }
+            if (mapData[y][x] === 3) { // 물 타일 전체 장당 차단
+                obstaclesMap[y][x] = 1;
+            }
+            if (mapData[y][x] === 4) { // 모래도 지나지 못하게
+                obstaclesMap[y][x] = 1;
+            }
+        }
+    }
+    // 해변 다가가는 선착장 구역은 모래 통과 허용
+    for (let x = 46; x <= 54; x++) {
+        for (let y = 88; y <= 93; y++) obstaclesMap[y][x] = 0;
+    }
+    for (let x = 60; x <= 68; x++) {
+        for (let y = 40; y <= 45; y++) obstaclesMap[y][x] = 0;
     }
 }
 
@@ -901,7 +1000,7 @@ class WorldScene extends Phaser.Scene {
 
     create() {
         // 1. 타일맵 직접 드로잉
-        const tileKeys = ['tile-grass', 'tile-flower', 'tile-brick', 'tile-water'];
+        const tileKeys = ['tile-grass', 'tile-flower', 'tile-brick', 'tile-water', 'tile-sand'];
         for (let y = 0; y < MAP_HEIGHT; y++) {
             for (let x = 0; x < MAP_WIDTH; x++) {
                 this.add.image(x * TILE_SIZE + 16, y * TILE_SIZE + 16, tileKeys[mapData[y][x]]);
@@ -929,8 +1028,8 @@ class WorldScene extends Phaser.Scene {
         this.spawnTrees();
 
         // 5. 플레이어 생성 (분수대 아래 시작 또는 이전 씬에서 넘어온 좌표)
-        const spawnX = (this.spawnCoords && this.spawnCoords.x !== undefined) ? this.spawnCoords.x : 30 * TILE_SIZE + 16;
-        const spawnY = (this.spawnCoords && this.spawnCoords.y !== undefined) ? this.spawnCoords.y : 33 * TILE_SIZE + 16;
+        const spawnX = (this.spawnCoords && this.spawnCoords.x !== undefined) ? this.spawnCoords.x : 34 * TILE_SIZE + 16;
+        const spawnY = (this.spawnCoords && this.spawnCoords.y !== undefined) ? this.spawnCoords.y : 51 * TILE_SIZE + 16;
         this.player = this.physics.add.sprite(spawnX, spawnY, 'player', 'down');
         this.physics.world.setBounds(0, 0, MAP_WIDTH * TILE_SIZE, MAP_HEIGHT * TILE_SIZE);
         this.player.setCollideWorldBounds(true);
@@ -1000,18 +1099,60 @@ class WorldScene extends Phaser.Scene {
         this.interactionPrompt.setVisible(false);
         this.interactionPrompt.setDepth(10000);
 
-        // 11. 차원 이동 포탈 추가 (빛나는 보라색 포탈)
-        this.dimensionPortal = this.add.circle(47 * TILE_SIZE + 16, 12 * TILE_SIZE + 16, 20, 0x8b5cf6);
-        this.dimensionPortal.setStrokeStyle(2, 0xffffff);
-        this.physics.add.existing(this.dimensionPortal, true);
-        this.tweens.add({
-            targets: this.dimensionPortal,
-            scale: 1.2,
-            alpha: 0.7,
-            duration: 800,
-            yoyo: true,
-            loop: -1
+        // 11. 화려한 미니게임 포탈 추가 (다중 회전 마법진 애니메이션)
+        // 포탈 위치: 중앙 광장 바로 동쪽 (x=46, y=51)
+        const portalX = 46 * TILE_SIZE + 16;
+        const portalY = 51 * TILE_SIZE + 16;
+
+        // 외부 마법진 1 (시계 방향 회전, 큵)
+        this.portalRing1 = this.add.circle(portalX, portalY, 36, 0x8b5cf6, 0.3);
+        this.portalRing1.setStrokeStyle(3, 0xc4b5fd);
+        // 외부 마법진 2 (반시계 방향, 보라)
+        this.portalRing2 = this.add.circle(portalX, portalY, 26, 0x7c3aed, 0.4);
+        this.portalRing2.setStrokeStyle(2, 0xa78bfa);
+        // 내부 코어 (누식 가운데 + 파동)
+        this.portalCore = this.add.circle(portalX, portalY, 16, 0x4c1d95, 0.9);
+        this.portalCore.setStrokeStyle(2, 0xffffff);
+        this.dimensionPortal = this.portalCore;
+        this.physics.add.existing(this.portalCore, true);
+
+        // 포탈 라벨
+        const portalLabel = this.add.text(portalX, portalY - 52, '✨ 미니게임 포탈', {
+            fontFamily: 'Galmuri9, monospace', fontSize: '9px',
+            color: '#e9d5ff', stroke: '#4c1d95', strokeThickness: 2,
+            backgroundColor: '#1e1b4b99', padding: { x: 5, y: 3 }
+        }).setOrigin(0.5).setDepth(5000);
+
+        // 마법진 1 회전 애니메이션
+        this.tweens.add({ targets: this.portalRing1, angle: 360, duration: 3000, repeat: -1, ease: 'Linear' });
+        // 마법진 2 반대 회전
+        this.tweens.add({ targets: this.portalRing2, angle: -360, duration: 2000, repeat: -1, ease: 'Linear' });
+        // 코어 파동
+        this.tweens.add({ targets: this.portalCore, scaleX: 1.3, scaleY: 1.3, alpha: 0.7, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        // 라벨 둥둥 애니메이션
+        this.tweens.add({ targets: portalLabel, y: portalY - 55, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+        // 파니클 주기적 방출
+        this.time.addEvent({
+            delay: 300,
+            loop: true,
+            callback: () => {
+                const angle = Math.random() * Math.PI * 2;
+                const r = 30 + Math.random() * 10;
+                const px = portalX + Math.cos(angle) * r;
+                const py = portalY + Math.sin(angle) * r;
+                const star = this.add.circle(px, py, 2 + Math.random() * 3, 0xe9d5ff, 1);
+                star.setDepth(4999);
+                this.tweens.add({
+                    targets: star, x: portalX, y: portalY,
+                    alpha: 0, scaleX: 0.2, scaleY: 0.2,
+                    duration: 600 + Math.random() * 400,
+                    onComplete: () => star.destroy()
+                });
+            }
         });
+
+        [this.portalRing1, this.portalRing2, this.portalCore, portalLabel].forEach(o => o.setDepth(4990));
 
         // 12. 선물 상자(Lucky Box) 물리 그룹
         this.boxesGroup = this.physics.add.group();
@@ -1045,53 +1186,51 @@ class WorldScene extends Phaser.Scene {
 
     spawnBuildings() {
         const structures = [
-            // 중앙 광장 분수대
-            { x: 29, y: 28, type: 'obj-fountain', cx: 32, cy: 32, cw: 56, ch: 40, co: 8 },
-            // 주택지역
-            { x: 20, y: 20, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 20, y: 13, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 20, y: 6, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            // 동쪽 상가
-            { x: 34, y: 25, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
-            { x: 34, y: 18, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 44, y: 17, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            // 확장된 동쪽 마을
-            { x: 58, y: 28, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 58, y: 14, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 65, y: 28, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 65, y: 14, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            // 남쪽 마을
-            { x: 30, y: 60, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 40, y: 60, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 50, y: 60, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 60, y: 60, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
-            // 동쪽 광장 분수대
-            { x: 49, y: 48, type: 'obj-fountain', cx: 32, cy: 32, cw: 56, ch: 40, co: 8 },
-            // 선착장 (보트 탑승 위치)
-            { x: 40, y: 12, type: 'obj-dock', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 },
-            { x: 73, y: 20, type: 'obj-dock', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 },
-            // 가로등
-            { x: 28, y: 4, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 28, y: 12, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 28, y: 20, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 28, y: 38, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 32, y: 4, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 32, y: 12, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 32, y: 20, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 32, y: 38, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 48, y: 38, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 52, y: 38, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 48, y: 56, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            { x: 52, y: 56, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
-            // 벤치
-            { x: 27, y: 32, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
-            { x: 31, y: 32, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
-            { x: 10, y: 13, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
-            { x: 14, y: 45, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
-            { x: 42, y: 8, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
-            { x: 47, y: 52, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
-            { x: 53, y: 52, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
+            // 중앙 광장 분수대 (x=34, y=51)
+            { x: 34, y: 51, type: 'obj-fountain', cx: 32, cy: 32, cw: 56, ch: 40, co: 8 },
+            // === 강 A 북쪽 주택지역 (x:10~32, y:10~30) ===
+            { x: 12, y: 11, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 12, y: 21, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 24, y: 12, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 24, y: 22, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            // === 중심서 구역 (x:10~43, y:41~78) ===
+            { x: 12, y: 42, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
+            { x: 12, y: 62, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 12, y: 72, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 26, y: 42, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 26, y: 52, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 26, y: 62, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 26, y: 72, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            // === 남쪽 광장 분수대 (x=54, y=85)
+            { x: 54, y: 85, type: 'obj-fountain', cx: 32, cy: 32, cw: 56, ch: 40, co: 8 },
+            // === 강 B 동쪽 구역 (x:68~90, y:18~90) ===
+            { x: 70, y: 20, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
+            { x: 70, y: 32, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 70, y: 47, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 70, y: 60, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 70, y: 74, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 70, y: 87, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 83, y: 20, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 83, y: 32, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 83, y: 47, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
+            { x: 83, y: 60, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 83, y: 74, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 83, y: 87, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            // === 선착장 ===
+            // 동쪽 강 B 연접 선착장 (x=64, y=42)
+            { x: 64, y: 42, type: 'obj-dock', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 },
+            // 남쪽 해변 선착장 (x=50, y=90)
+            { x: 50, y: 90, type: 'obj-dock', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 },
+            // === 가로등 (광장 주변) ===
+            { x: 27, y: 48, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
+            { x: 27, y: 54, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
+            { x: 41, y: 48, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
+            { x: 41, y: 54, type: 'obj-streetlight', cx: 16, cy: 32, cw: 12, ch: 12, co: 24 },
+            // === 벤치 ===
+            { x: 30, y: 51, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
+            { x: 38, y: 51, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
         ];
+
 
         structures.forEach(s => {
             const px = s.x * TILE_SIZE + s.cx;
@@ -1127,49 +1266,23 @@ class WorldScene extends Phaser.Scene {
 
     spawnTrees() {
         const treePositions = [];
-
-        // 1. 북서쪽 숲
-        for (let y = 3; y < 19; y += 2) {
-            for (let x = 3; x < 19; x += 2) {
-                if ((x < 6 || x > 13 || y < 6 || y > 13) && Math.random() < 0.75) {
-                    treePositions.push({ x, y });
+        for (let i = 0; i < 400; i++) {
+            const tx = Phaser.Math.Between(8, MAP_WIDTH - 9);
+            const ty = Phaser.Math.Between(8, MAP_HEIGHT - 9);
+            
+            // 물(3), 모래(4), 도로(2) 위엔 스폰 불가
+            if (mapData[ty][tx] === 0 || mapData[ty][tx] === 1) {
+                // 광장 범위(25~45, 45~55) 제외
+                if (!(tx >= 23 && tx <= 47 && ty >= 43 && ty <= 57)) {
+                    let canPlace = true;
+                    // 나무가 서로 너무 겹치지 않도록 조절
+                    for (let p of treePositions) {
+                        if (Math.abs(p.x - tx) + Math.abs(p.y - ty) < 2) { canPlace = false; break; }
+                    }
+                    if (canPlace) {
+                        treePositions.push({ x: tx, y: ty, isApple: Math.random() < 0.2 });
+                    }
                 }
-            }
-        }
-
-        // 2. 남서쪽 사과나무 과수원
-        for (let y = 36; y <= 42; y += 2) {
-            for (let x = 4; x <= 16; x += 2) {
-                if (Math.random() < 0.8) {
-                    treePositions.push({ x, y, isApple: true });
-                }
-            }
-        }
-
-        // 3. 호수 주변
-        for (let x = 38; x < 58; x += 3) {
-            treePositions.push({ x, y: 4 });
-            treePositions.push({ x, y: 19 });
-        }
-
-        // 4. 가로수
-        for (let y = 3; y < MAP_HEIGHT - 3; y += 4) {
-            if (y < 23 || y > 36) {
-                if (y % 8 !== 4) {
-                    treePositions.push({ x: 27, y });
-                    treePositions.push({ x: 33, y });
-                }
-            }
-        }
-
-        // 5. 무작위
-        for (let i = 0; i < 50; i++) {
-            const tx = Phaser.Math.Between(2, MAP_WIDTH - 3);
-            const ty = Phaser.Math.Between(2, MAP_HEIGHT - 3);
-            if ((tx < 23 || tx > 36 || ty < 23 || ty > 36) && 
-                mapData[ty][tx] !== 2 && mapData[ty][tx] !== 3 && 
-                tx !== 20 && tx !== 34 && tx !== 44) {
-                treePositions.push({ x: tx, y: ty });
             }
         }
 
@@ -1220,7 +1333,7 @@ class WorldScene extends Phaser.Scene {
             cx = Phaser.Math.Between(2, MAP_WIDTH - 3);
             cy = Phaser.Math.Between(2, MAP_HEIGHT - 3);
             
-            if (obstaclesMap[cy][cx] === 0 && mapData[cy][cx] !== 3) {
+            if (obstaclesMap[cy][cx] === 0 && mapData[cy][cx] !== 3 && mapData[cy][cx] !== 4) {
                 found = true;
                 break;
             }
@@ -1321,7 +1434,7 @@ class WorldScene extends Phaser.Scene {
         for (let attempts = 0; attempts < 50; attempts++) {
             cx = Phaser.Math.Between(2, MAP_WIDTH - 3);
             cy = Phaser.Math.Between(2, MAP_HEIGHT - 3);
-            if (obstaclesMap[cy][cx] === 0 && mapData[cy][cx] !== 3) {
+            if (obstaclesMap[cy][cx] === 0 && mapData[cy][cx] !== 3 && mapData[cy][cx] !== 4) {
                 found = true;
                 break;
             }
@@ -1526,14 +1639,32 @@ class WorldScene extends Phaser.Scene {
             dy *= 0.7071;
         }
 
+        // === 물 통과 절대 차단 (이동 원래 레벨, 가장 효과적) ===
+        if (!onBoat && !activeBuffs.gravity && !activeBuffs.ghost &&
+            !(currentUser && currentUser.equipped.includes('item_balloon')) &&
+            !activeBuffs.freeze) {
+            const nextX = this.player.x + dx * speed * (this.game.loop.delta / 1000);
+            const nextY = this.player.y + dy * speed * (this.game.loop.delta / 1000);
+            const ngx = Math.floor(nextX / TILE_SIZE);
+            const ngy = Math.floor(nextY / TILE_SIZE);
+            if (mapData[ngy] && (mapData[ngy][ngx] === 3 || mapData[ngy][ngx] === 4)) {
+                // 선착장 구역은 통과 허용
+                const isDockArea = (ngx >= 62 && ngx <= 67 && ngy >= 40 && ngy <= 45) ||
+                                   (ngx >= 46 && ngx <= 54 && ngy >= 88 && ngy <= 94);
+                if (!isDockArea) {
+                    dx = 0; dy = 0;
+                }
+            }
+        }
+
         // Boat restriction: prevent moving into non-water tiles
         if (onBoat) {
             const nextX = this.player.x + dx * speed * (this.game.loop.delta / 1000);
             const nextY = this.player.y + dy * speed * (this.game.loop.delta / 1000);
             const gridX = Math.floor(nextX / TILE_SIZE);
             const gridY = Math.floor(nextY / TILE_SIZE);
-            const isDock = (gridX >= 39 && gridX <= 41 && gridY >= 11 && gridY <= 13) || 
-                           (gridX >= 72 && gridX <= 74 && gridY >= 19 && gridY <= 21);
+            const isDock = (gridX >= 62 && gridX <= 67 && gridY >= 40 && gridY <= 45) ||
+                           (gridX >= 46 && gridX <= 54 && gridY >= 88 && gridY <= 94);
             if (mapData[gridY] && mapData[gridY][gridX] !== 3 && !isDock) {
                 dx = 0;
                 dy = 0;
@@ -1594,26 +1725,28 @@ class WorldScene extends Phaser.Scene {
                 this.cameras.main.fadeOut(200);
                 this.time.delayedCall(200, () => {
                     this.scene.stop('WorldScene');
-                    this.scene.start('IndoorScene', { type: door.type, parentCoords: { x: Math.floor(door.x / TILE_SIZE), y: Math.floor(door.y / TILE_SIZE) - 2 } });
+                    this.scene.start('IndoorScene', { type: door.type, parentCoords: { x: door.x, y: door.y } });
                 });
             }
         });
 
-        // 차원 이동 포탈 충돌 체크 (환상의 크리스탈 숲으로 이동)
+        // 차원 이동 포탈 충돌 체크 (미니게임 랜덤 입장)
         const distPortal = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.dimensionPortal.x, this.dimensionPortal.y);
         if (distPortal < 25) {
             this.isInteracting = true;
             this.cameras.main.fadeOut(200);
             this.time.delayedCall(200, () => {
                 this.scene.stop('WorldScene');
-                this.scene.start('FantasyForestScene');
+                const games = ['DodgeballScene', 'MazeScene'];
+                const selectedGame = Phaser.Utils.Array.GetRandom(games);
+                this.scene.start(selectedGame);
             });
         }
 
         // 선장 근첲 보트 탑승 감지
         const dockPositions = [
-            { wx: 40 * TILE_SIZE + 16, wy: 12 * TILE_SIZE + 16 },
-            { wx: 73 * TILE_SIZE + 16, wy: 20 * TILE_SIZE + 16 }
+            { wx: 64 * TILE_SIZE + 16, wy: 42 * TILE_SIZE + 16 },  // 동쪽 강 B 선착장
+            { wx: 50 * TILE_SIZE + 16, wy: 90 * TILE_SIZE + 16 }   // 남쪽 해변 선착장
         ];
         let nearDock = false;
         for (const dock of dockPositions) {
@@ -1659,12 +1792,12 @@ class WorldScene extends Phaser.Scene {
         }
 
         // 선착장 보트 탑승/하선 체크
-        const dockPositions = [
-            { wx: 40 * TILE_SIZE + 16, wy: 12 * TILE_SIZE + 16 },
-            { wx: 73 * TILE_SIZE + 16, wy: 20 * TILE_SIZE + 16 }
+        const dockPositions2 = [
+            { wx: 64 * TILE_SIZE + 16, wy: 42 * TILE_SIZE + 16 },
+            { wx: 50 * TILE_SIZE + 16, wy: 90 * TILE_SIZE + 16 }
         ];
         let nearDock = false;
-        for (const dock of dockPositions) {
+        for (const dock of dockPositions2) {
             if (Phaser.Math.Distance.Between(this.player.x, this.player.y, dock.wx, dock.wy) < 48) {
                 nearDock = true;
                 break;
@@ -1677,6 +1810,13 @@ class WorldScene extends Phaser.Scene {
                 showHUDMessage('⛵ 보트에 탑승했습니다! 호수를 건널 수 있습니다.');
             } else {
                 showHUDMessage('⛵ 보트에서 하선했습니다.');
+                let closestDock = dockPositions[0];
+                for (const dock of dockPositions) {
+                    if (Phaser.Math.Distance.Between(this.player.x, this.player.y, dock.wx, dock.wy) < 48) {
+                        closestDock = dock; break;
+                    }
+                }
+                this.player.setPosition(closestDock.wx, closestDock.wy - 32);
             }
             applyPhaserBuffVisuals(Object.keys(activeBuffs).find(k => activeBuffs[k] === true && k !== 'timer'));
             return;
@@ -2720,6 +2860,26 @@ function initMobileControls() {
         dashBtn.addEventListener('click', handleDash);
     }
     
+    // 귀환(Return) 버튼
+    const returnHomeBtn = document.getElementById('return-home-btn');
+    if (returnHomeBtn) {
+        returnHomeBtn.addEventListener('click', () => {
+            if (onBoat) {
+                onBoat = false;
+                applyPhaserBuffVisuals(Object.keys(activeBuffs).find(k => activeBuffs[k] === true && k !== 'timer'));
+            }
+            const scene = getActiveScene();
+            if (scene && scene.scene.key !== 'WorldScene') {
+                scene.scene.stop(scene.scene.key);
+                scene.scene.start('WorldScene', { x: 34 * 32 + 16, y: 51 * 32 + 16 });
+            } else if (scene && scene.player) {
+                scene.player.setPosition(34 * 32 + 16, 51 * 32 + 16);
+                scene.cameras.main.flash(300, 255, 255, 255);
+            }
+            showHUDMessage('🏠 마을 중앙으로 무사히 귀환했습니다.');
+        });
+    }
+    
     let dragging = false;
     
     joystickBase.addEventListener('touchstart', (e) => {
@@ -3124,7 +3284,7 @@ function setupLoginSystem() {
                     setTimeout(() => {
                         const worldScene = gameInstance && gameInstance.scene.getScene('WorldScene');
                         if (worldScene && worldScene.player) {
-                            worldScene.player.setPosition(30 * TILE_SIZE + 16, 33 * TILE_SIZE + 16);
+                            worldScene.player.setPosition(34 * TILE_SIZE + 16, 51 * TILE_SIZE + 16);
                             worldScene.spawnNPCs();
                             worldScene.refreshPlayerSkin();
                         }
@@ -3135,7 +3295,7 @@ function setupLoginSystem() {
                     setTimeout(() => {
                         const worldScene = gameInstance && gameInstance.scene.getScene('WorldScene');
                         if (worldScene && worldScene.player) {
-                            worldScene.player.setPosition(30 * TILE_SIZE + 16, 33 * TILE_SIZE + 16);
+                            worldScene.player.setPosition(34 * TILE_SIZE + 16, 51 * TILE_SIZE + 16);
                             worldScene.spawnNPCs();
                             worldScene.refreshPlayerSkin();
                         }
@@ -4044,12 +4204,12 @@ function setupAdminQuizForm() {
 
 // 실내 문 좌표 목록 및 이동 씬 정의
 const HOUSE_DOORS = [
-    { x: 20 * TILE_SIZE + 48, y: 20 * TILE_SIZE + 82, type: 'cozy_home' },
-    { x: 20 * TILE_SIZE + 48, y: 13 * TILE_SIZE + 82, type: 'cozy_home' },
-    { x: 20 * TILE_SIZE + 48, y: 6 * TILE_SIZE + 82, type: 'cozy_home' },
-    { x: 34 * TILE_SIZE + 64, y: 25 * TILE_SIZE + 82, type: 'mart_interior' },
-    { x: 34 * TILE_SIZE + 48, y: 18 * TILE_SIZE + 82, type: 'cozy_home' },
-    { x: 44 * TILE_SIZE + 48, y: 17 * TILE_SIZE + 82, type: 'classroom' }
+    { x: 12 * TILE_SIZE + 48, y: 11 * TILE_SIZE + 82, type: 'cozy_home' },
+    { x: 12 * TILE_SIZE + 48, y: 21 * TILE_SIZE + 82, type: 'cozy_home' },
+    { x: 24 * TILE_SIZE + 48, y: 12 * TILE_SIZE + 82, type: 'cozy_home' },
+    { x: 12 * TILE_SIZE + 64, y: 42 * TILE_SIZE + 82, type: 'mart_interior' },
+    { x: 26 * TILE_SIZE + 48, y: 52 * TILE_SIZE + 82, type: 'cozy_home' },
+    { x: 83 * TILE_SIZE + 64, y: 47 * TILE_SIZE + 82, type: 'classroom' }
 ];
 
 class IndoorScene extends Phaser.Scene {
@@ -4217,6 +4377,7 @@ class IndoorScene extends Phaser.Scene {
         const py = startY + 2 * TILE_SIZE + 16;
         
         this.npcSprite = this.physics.add.staticSprite(px, py, npcKey, 'down');
+        this.physics.add.collider(this.player, this.npcSprite);
     }
 
     update() {
@@ -4296,8 +4457,8 @@ class IndoorScene extends Phaser.Scene {
             this.time.delayedCall(200, () => {
                 this.scene.stop('IndoorScene');
                 this.scene.start('WorldScene', {
-                    x: this.parentCoords.x * TILE_SIZE + 16,
-                    y: this.parentCoords.y * TILE_SIZE + 48
+                    x: this.parentCoords.x,
+                    y: this.parentCoords.y + 40
                 });
             });
         }
@@ -4616,8 +4777,7 @@ class FantasyForestScene extends Phaser.Scene {
     update() {
         if (!currentUser) return;
 
-        const worldScene = gameInstance.scene.getScene('WorldScene');
-        if (worldScene.isInteracting) {
+        if (this.isInteracting) {
             this.player.setVelocity(0);
             return;
         }
@@ -4720,6 +4880,205 @@ class FantasyForestScene extends Phaser.Scene {
 // 14. 메인 부트스트래퍼 초기화
 // ==========================================================================
 
+// ==========================================================================
+// 14. 신규 미니게임 씬 (Dodgeball, Maze)
+// ==========================================================================
+
+class DodgeballScene extends Phaser.Scene {
+    constructor() { super('DodgeballScene'); }
+    create() {
+        this.cameras.main.setBackgroundColor('#1e293b');
+        this.cameras.main.fadeIn(300);
+        
+        const mapW = 20 * 32, mapH = 20 * 32;
+        this.staticObstacles = this.physics.add.staticGroup();
+        
+        // 외곽선 경계
+        const top = this.add.rectangle(mapW/2, 8, mapW, 16, 0x475569);
+        const bottom = this.add.rectangle(mapW/2, mapH-8, mapW, 16, 0x475569);
+        const left = this.add.rectangle(8, mapH/2, 16, mapH, 0x475569);
+        const right = this.add.rectangle(mapW-8, mapH/2, 16, mapH, 0x475569);
+        this.physics.add.existing(top, true); this.physics.add.existing(bottom, true);
+        this.physics.add.existing(left, true); this.physics.add.existing(right, true);
+        this.staticObstacles.addMultiple([top, bottom, left, right]);
+        
+        this.player = this.physics.add.sprite(mapW/2, mapH - 48, 'player', 'up');
+        this.player.body.setCircle(8, 8, 16);
+        this.physics.add.collider(this.player, this.staticObstacles);
+
+        // 도착점의 황금 열쇠
+        this.keyObj = this.add.circle(mapW/2, 48, 16, 0xfcd34d);
+        this.physics.add.existing(this.keyObj, true);
+        this.physics.add.overlap(this.player, this.keyObj, () => {
+            if (this.gameOver) return;
+            this.gameOver = true;
+            if (currentUser) {
+                currentUser.gold += 150; syncCurrentUser();
+                showHUDMessage('🏆 공 피하기 클리어! 150G를 획득했습니다!');
+            }
+            this.cameras.main.fadeOut(300);
+            this.time.delayedCall(300, () => {
+                this.scene.stop(); this.scene.start('WorldScene', { x: 34 * 32 + 16, y: 51 * 32 + 16 });
+            });
+        });
+
+        // 닷지볼 생성
+        this.balls = this.physics.add.group();
+        for(let i=0; i<15; i++) {
+            let ball = this.add.circle(Phaser.Math.Between(32, mapW-32), Phaser.Math.Between(100, mapH-150), 8, 0xef4444);
+            this.physics.add.existing(ball);
+            ball.body.setCircle(8);
+            ball.body.setBounce(1, 1);
+            ball.body.setCollideWorldBounds(true);
+            ball.body.setVelocity(Phaser.Math.Between(-180, 180), Phaser.Math.Between(-180, 180));
+            this.balls.add(ball);
+        }
+        this.physics.add.collider(this.balls, this.staticObstacles);
+        this.physics.add.overlap(this.player, this.balls, () => {
+            if (this.gameOver) return;
+            this.gameOver = true;
+            this.cameras.main.shake(200, 0.05);
+            showHUDMessage('❌ 공에 맞았습니다! 미니게임 실패...');
+            this.cameras.main.fadeOut(400);
+            this.time.delayedCall(400, () => {
+                this.scene.stop(); this.scene.start('WorldScene', { x: 34 * 32 + 16, y: 51 * 32 + 16 });
+            });
+        });
+
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.wasd = this.input.keyboard.addKeys({
+            up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S,
+            left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D
+        });
+        
+        this.physics.world.setBounds(0, 0, mapW, mapH);
+        this.cameras.main.setBounds(0, 0, mapW, mapH);
+        this.cameras.main.startFollow(this.player, true);
+        this.gameOver = false;
+        
+        this.add.text(10, 10, '도착점의 노란색 구슬에 닿으세요!', { font: '12px Galmuri9', color: '#fff' });
+    }
+    update() {
+        if (this.gameOver || !currentUser) { this.player.setVelocity(0); return; }
+        let speed = 180;
+        let dx = 0, dy = 0;
+        if (this.cursors.left.isDown || this.wasd.left.isDown) dx = -1;
+        else if (this.cursors.right.isDown || this.wasd.right.isDown) dx = 1;
+        if (this.cursors.up.isDown || this.wasd.up.isDown) dy = -1;
+        else if (this.cursors.down.isDown || this.wasd.down.isDown) dy = 1;
+        if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+        this.player.setVelocity(dx * speed, dy * speed);
+        if(dx !== 0 || dy !== 0) {
+            if (dx < 0) this.player.setFrame('left');
+            else if (dx > 0) this.player.setFrame('right');
+            else if (dy < 0) this.player.setFrame('up');
+            else this.player.setFrame('down');
+        }
+    }
+}
+
+class MazeScene extends Phaser.Scene {
+    constructor() { super('MazeScene'); }
+    create() {
+        this.cameras.main.setBackgroundColor('#0f172a');
+        this.cameras.main.fadeIn(300);
+        this.staticObstacles = this.physics.add.staticGroup();
+        
+        const mazeSize = 15;
+        const tileSize = 32;
+        // Generate DFS maze
+        let maze = Array(mazeSize).fill(0).map(() => Array(mazeSize).fill(1));
+        let stack = [[1, 1]];
+        maze[1][1] = 0;
+        while(stack.length > 0) {
+            let [cx, cy] = stack[stack.length - 1];
+            let dirs = [[0,-2], [0,2], [-2,0], [2,0]].sort(() => Math.random() - 0.5);
+            let moved = false;
+            for(let d of dirs) {
+                let nx = cx + d[0], ny = cy + d[1];
+                if(nx > 0 && nx < mazeSize-1 && ny > 0 && ny < mazeSize-1 && maze[ny][nx] === 1) {
+                    maze[cy + d[1]/2][cx + d[0]/2] = 0;
+                    maze[ny][nx] = 0;
+                    stack.push([nx, ny]);
+                    moved = true;
+                    break;
+                }
+            }
+            if(!moved) stack.pop();
+        }
+        maze[mazeSize-2][mazeSize-2] = 0; // Ensure exit is open
+        
+        for(let y=0; y<mazeSize; y++) {
+            for(let x=0; x<mazeSize; x++) {
+                if(maze[y][x] === 1) {
+                    let w = this.add.rectangle(x*tileSize+16, y*tileSize+16, tileSize, tileSize, 0x475569);
+                    this.physics.add.existing(w, true);
+                    this.staticObstacles.add(w);
+                }
+            }
+        }
+        
+        this.player = this.physics.add.sprite(1*tileSize+16, 1*tileSize+16, 'player', 'down');
+        this.player.body.setCircle(8, 8, 16);
+        this.physics.add.collider(this.player, this.staticObstacles);
+        
+        this.exitPortal = this.add.circle((mazeSize-2)*tileSize+16, (mazeSize-2)*tileSize+16, 12, 0x34d399);
+        this.physics.add.existing(this.exitPortal, true);
+        this.physics.add.overlap(this.player, this.exitPortal, () => {
+            if(this.gameOver) return;
+            this.gameOver = true;
+            if(currentUser) {
+                currentUser.gold += 150; syncCurrentUser();
+                showHUDMessage('🏆 미로 탈출 성공! 150G를 획득했습니다!');
+            }
+            this.cameras.main.fadeOut(300);
+            this.time.delayedCall(300, () => { this.scene.stop(); this.scene.start('WorldScene', { x: 34 * 32 + 16, y: 51 * 32 + 16 }); });
+        });
+
+        this.timeLeft = 25;
+        this.timerText = this.add.text(10, 10, 'TIME: ' + this.timeLeft, { font: 'bold 16px Galmuri9', color: '#f87171' }).setScrollFactor(0);
+        this.timerText.setDepth(100);
+        this.time.addEvent({
+            delay: 1000, loop: true, callback: () => {
+                if(this.gameOver) return;
+                this.timeLeft--;
+                this.timerText.setText('TIME: ' + this.timeLeft);
+                if(this.timeLeft <= 0) {
+                    this.gameOver = true;
+                    showHUDMessage('❌ 시간 초과! 미로에 갇혔습니다!');
+                    this.cameras.main.fadeOut(300);
+                    this.time.delayedCall(300, () => { this.scene.stop(); this.scene.start('WorldScene', { x: 34 * 32 + 16, y: 51 * 32 + 16 }); });
+                }
+            }
+        });
+
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.wasd = this.input.keyboard.addKeys({
+            up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S,
+            left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D
+        });
+        this.cameras.main.startFollow(this.player, true);
+        this.gameOver = false;
+    }
+    update() {
+        if (this.gameOver || !currentUser) { this.player.setVelocity(0); return; }
+        let speed = 180;
+        let dx = 0, dy = 0;
+        if (this.cursors.left.isDown || this.wasd.left.isDown) dx = -1;
+        else if (this.cursors.right.isDown || this.wasd.right.isDown) dx = 1;
+        if (this.cursors.up.isDown || this.wasd.up.isDown) dy = -1;
+        else if (this.cursors.down.isDown || this.wasd.down.isDown) dy = 1;
+        if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+        this.player.setVelocity(dx * speed, dy * speed);
+        if(dx !== 0 || dy !== 0) {
+            if (dx < 0) this.player.setFrame('left');
+            else if (dx > 0) this.player.setFrame('right');
+            else if (dy < 0) this.player.setFrame('up');
+            else this.player.setFrame('down');
+        }
+    }
+}
+
 let gameInstance = null;
 
 // Phaser 게임 엔진 초기화 (서버 접속 성공 후 호출)
@@ -4748,7 +5107,7 @@ function startGameEngine() {
                 debug: false
             }
         },
-        scene: [WorldScene, IndoorScene, FantasyForestScene],
+        scene: [WorldScene, IndoorScene, FantasyForestScene, DodgeballScene, MazeScene],
         pixelArt: true,
         antialias: false,
         backgroundColor: '#1a1a2e',
