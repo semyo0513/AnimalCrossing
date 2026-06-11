@@ -1008,6 +1008,8 @@ class WorldScene extends Phaser.Scene {
             },
             loop: true
         });
+
+        this.cameras.main.fadeIn(200);
     }
 
     spawnBuildings() {
@@ -4194,22 +4196,22 @@ class IndoorScene extends Phaser.Scene {
         
         const distToDoor = Phaser.Math.Distance.Between(this.player.x, this.player.y, doorX, doorY + 24);
         if (distToDoor < 28) {
-            this.isInteracting = true;
             this.cameras.main.fadeOut(200);
             this.time.delayedCall(200, () => {
                 this.scene.stop('IndoorScene');
                 this.scene.start('WorldScene');
                 
-                setTimeout(() => {
-                    const worldScene = gameInstance.scene.getScene('WorldScene');
-                    if (worldScene && worldScene.player) {
+                const worldScene = gameInstance.scene.getScene('WorldScene');
+                if (worldScene) {
+                    worldScene.cameras.main.fadeIn(200);
+                    if (worldScene.player) {
                         worldScene.player.setPosition(
                             this.parentCoords.x * TILE_SIZE + 16,
                             this.parentCoords.y * TILE_SIZE + 48
                         );
-                        worldScene.isInteracting = false;
                     }
-                }, 300);
+                    worldScene.isInteracting = false;
+                }
             });
         }
 
