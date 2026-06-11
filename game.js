@@ -1837,8 +1837,7 @@ function closeDialogueOnly() {
     document.getElementById('dialogue-box').classList.add('hidden');
 }
 
-function closeDialogue() {
-    closeDialogueOnly();
+function resetAllInteractions() {
     if (gameInstance) {
         const scenes = ['WorldScene', 'IndoorScene', 'FantasyForestScene'];
         scenes.forEach(name => {
@@ -1846,6 +1845,11 @@ function closeDialogue() {
             if (s) s.isInteracting = false;
         });
     }
+}
+
+function closeDialogue() {
+    closeDialogueOnly();
+    resetAllInteractions();
 }
 
 // 퀴즈 풀기 팝업 트리거
@@ -1902,9 +1906,7 @@ function openQuizSolver(quiz) {
                 closeBtn.innerText = '동네 탐험 계속하기 🏃';
                 closeBtn.addEventListener('click', () => {
                     modal.classList.add('hidden');
-                    if (gameInstance) {
-                        gameInstance.scene.getScene('WorldScene').isInteracting = false;
-                    }
+                    resetAllInteractions();
                 });
                 footer.appendChild(closeBtn);
             } else {
@@ -1934,9 +1936,7 @@ function openQuizSolver(quiz) {
                 giveUpBtn.innerText = '포기';
                 giveUpBtn.addEventListener('click', () => {
                     modal.classList.add('hidden');
-                    if (gameInstance) {
-                        gameInstance.scene.getScene('WorldScene').isInteracting = false;
-                    }
+                    resetAllInteractions();
                 });
                 
                 footer.appendChild(retryBtn);
