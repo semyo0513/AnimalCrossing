@@ -144,6 +144,123 @@ const DEFAULT_QUIZZES = [
 const apiQueue = [];
 let isProcessingQueue = false;
 
+// LocalStorage 기반 로컬 폴백 DB 초기화
+if (!localStorage.getItem('local_accounts')) {
+    localStorage.setItem('local_accounts', JSON.stringify([]));
+}
+if (!localStorage.getItem('local_users')) {
+    localStorage.setItem('local_users', JSON.stringify([]));
+}
+if (!localStorage.getItem('local_npcs')) {
+    localStorage.setItem('local_npcs', JSON.stringify([]));
+}
+if (!localStorage.getItem('local_quizzes')) {
+    localStorage.setItem('local_quizzes', JSON.stringify([]));
+}
+if (!localStorage.getItem('local_servers')) {
+    localStorage.setItem('local_servers', JSON.stringify([
+        { id: 'server_default', name: '🌿 우리동네 기본 숲', owner: '교사-관리자' }
+    ]));
+}
+
+function handleLocalAPIFallback(action, data) {
+    const getLocal = (key) => JSON.parse(localStorage.getItem(key)) || [];
+    const setLocal = (key, val) => localStorage.setItem(key, JSON.stringify(val));
+
+    switch (action) {
+        case 'getAccounts': {
+            return { accounts: getLocal('local_accounts') };
+        }
+        case 'addAccount': {
+            const accounts = getLocal('local_accounts');
+            if (!accounts.some(a => a.username === data.username)) {
+                accounts.push(data);
+                setLocal('local_accounts', accounts);
+            }
+            return { status: 'success' };
+        }
+        case 'getServers': {
+            return { servers: getLocal('local_servers') };
+        }
+        case 'addServer': {
+            const servers = getLocal('local_servers');
+            if (!servers.some(s => s.id === data.id)) {
+                servers.push(data);
+                setLocal('local_servers', servers);
+            }
+            return { server: data };
+        }
+        case 'getUsers': {
+            return { users: getLocal('local_users') };
+        }
+        case 'saveUser': {
+            const users = getLocal('local_users');
+            const idx = users.findIndex(u => u.username === data.user.username);
+            if (idx !== -1) {
+                users[idx] = data.user;
+            } else {
+                users.push(data.user);
+            }
+            setLocal('local_users', users);
+            return { status: 'success' };
+        }
+        case 'getNPCs': {
+            return { npcs: getLocal('local_npcs') };
+        }
+        case 'saveNPC': {
+            const npcs = getLocal('local_npcs');
+            const idx = npcs.findIndex(n => n.id === data.npc.id);
+            if (idx !== -1) {
+                npcs[idx] = data.npc;
+            } else {
+                npcs.push(data.npc);
+            }
+            setLocal('local_npcs', npcs);
+            return { status: 'success' };
+        }
+        case 'deleteNPC': {
+            let npcs = getLocal('local_npcs');
+            npcs = npcs.filter(n => n.id !== data.id);
+            setLocal('local_npcs', npcs);
+            return { status: 'success' };
+        }
+        case 'getQuizzes': {
+            const quizzes = getLocal('local_quizzes');
+            return { quizzes: [...DEFAULT_QUIZZES, ...quizzes] };
+        }
+        case 'saveQuiz': {
+            const quizzes = getLocal('local_quizzes');
+            const idx = quizzes.findIndex(q => q.id === data.quiz.id);
+            if (idx !== -1) {
+                quizzes[idx] = data.quiz;
+            } else {
+                quizzes.push(data.quiz);
+            }
+            setLocal('local_quizzes', quizzes);
+            return { status: 'success' };
+        }
+        case 'deleteQuiz': {
+            let quizzes = getLocal('local_quizzes');
+            quizzes = quizzes.filter(q => q.id !== data.id);
+            setLocal('local_quizzes', quizzes);
+            return { status: 'success' };
+        }
+        case 'deleteUser': {
+            let users = getLocal('local_users');
+            users = users.filter(u => u.username !== data.username);
+            setLocal('local_users', users);
+            return { status: 'success' };
+        }
+        case 'saveUsersBulk': {
+            setLocal('local_users', data.users);
+            return { status: 'success' };
+        }
+        default:
+            console.error('Unknown fallback action:', action);
+            return {};
+    }
+}
+
 async function callAPI(action, data = {}) {
     const payload = { action, data };
     try {
@@ -162,8 +279,8 @@ async function callAPI(action, data = {}) {
             throw new Error(result ? result.error || result.message : 'Unknown API error');
         }
     } catch (e) {
-        console.error(`API Error on action [${action}]:`, e);
-        throw e;
+        console.warn(`API Error on action [${action}]. Falling back to LocalStorage:`, e);
+        return handleLocalAPIFallback(action, data);
     }
 }
 
