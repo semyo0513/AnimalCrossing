@@ -23,6 +23,7 @@ let cachedQuizzes = [];
 let currentServer = null; // 선택된 서버 메타데이터 { id, name, owner }
 let currentUser = null;   // 현재 로그인된 사용자 세션 데이터
 let syncIntervalId = null; // 백그라운드 폴링 타이머 ID
+let lastLocalChangeTime = 0; // 로컬 사용자 상태 변경 타임스탬프 (레이스 컨디션 방지용)
 
 // 상점 아이템 데이터베이스 정의
 const SHOP_ITEMS = [
@@ -46,6 +47,8 @@ const SHOP_ITEMS = [
     { id: 'item_aura_ice', name: '🧊 얼음 오라', desc: '신비로운 얼음 오라를 발산하며, 상점 구매 시 추가로 10% 할인을 받습니다 (왕관 중첩 가능).', category: 'upgrade', cost: 460 },
     { id: 'item_lucky_coin', name: '🍀 행운의 동전', desc: '동전 획득 시 추가 보너스 골드를 얻습니다. (+50%)', category: 'upgrade', cost: 600 },
     { id: 'item_boat_pass', name: '⛵ 뱃사람 증명서', desc: '호수에서 배를 타고 자유롭게 이동할 수 있습니다.', category: 'upgrade', cost: 700 },
+    { id: 'item_bicycle', name: '🚲 친환경 자전거', desc: '자전거에 올라타 이동 속도가 최고치(220)로 빨라집니다. 탑승 효과가 발밑에 표시됩니다.', category: 'upgrade', cost: 450 },
+    { id: 'item_skateboard', name: '🛹 힙한 스케이트보드', desc: '스케이트보드를 장착해 이동 속도가 빠르게(170) 증가합니다. 탑승 효과가 발밑에 표시됩니다.', category: 'upgrade', cost: 250 },
 ];
 
 // 기본 NPC 데이터 (최초 로드 시 적용)
@@ -220,29 +223,35 @@ async function syncRemoteData() {
         return;
     }
     
-    const goldChanged = currentUser.gold !== updatedUser.gold;
-    currentUser = updatedUser;
+    // 최근에 클라이언트에서 변경(구매, 장착 등)이 있었고 아직 서버 반영 중일 가능성이 있다면 덮어쓰지 않음
+    const hasPendingQueue = apiQueue.length > 0 || isProcessingQueue;
+    const recentlyChanged = (Date.now() - lastLocalChangeTime < 3000);
     
-    document.getElementById('hud-user-name').innerText = currentUser.username;
-    document.getElementById('hud-user-gold').innerText = currentUser.gold;
-    
-    if (!document.getElementById('shop-modal').classList.contains('hidden')) {
-        loadShopItems();
-    }
-    if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
-        loadInventoryItems();
-    }
-    if (!document.getElementById('admin-modal').classList.contains('hidden')) {
-        const activeTab = document.querySelector('.admin-tab.active');
-        if (activeTab) activeTab.click(); // 대시보드 강제 렌더링 유도
-    }
-    
-    if (gameInstance && gameInstance.scene.isActive('WorldScene')) {
-        gameInstance.scene.getScene('WorldScene').refreshPlayerSkin();
-    }
-    
-    if (goldChanged) {
-        showHUDMessage(`💰 보유 골드가 동기화되었습니다: ${currentUser.gold}G`);
+    if (!hasPendingQueue && !recentlyChanged) {
+        const goldChanged = currentUser.gold !== updatedUser.gold;
+        currentUser = updatedUser;
+        
+        document.getElementById('hud-user-name').innerText = currentUser.username;
+        document.getElementById('hud-user-gold').innerText = currentUser.gold;
+        
+        if (!document.getElementById('shop-modal').classList.contains('hidden')) {
+            loadShopItems();
+        }
+        if (!document.getElementById('inventory-modal').classList.contains('hidden')) {
+            loadInventoryItems();
+        }
+        if (!document.getElementById('admin-modal').classList.contains('hidden')) {
+            const activeTab = document.querySelector('.admin-tab.active');
+            if (activeTab) activeTab.click(); // 대시보드 강제 렌더링 유도
+        }
+        
+        if (gameInstance && gameInstance.scene.isActive('WorldScene')) {
+            gameInstance.scene.getScene('WorldScene').refreshPlayerSkin();
+        }
+        
+        if (goldChanged) {
+            showHUDMessage(`💰 보유 골드가 동기화되었습니다: ${currentUser.gold}G`);
+        }
     }
     
     // UI 업데이트
@@ -258,8 +267,66 @@ function getUsers() {
     return cachedUsers;
 }
 
+const ZOO_ANIMALS = [
+    {
+        id: 'npc_zoo_tiger',
+        name: '🐯 호랑이',
+        role: '동물원 호랑이',
+        mapX: 76,
+        mapY: 67,
+        get likes() { return parseInt(localStorage.getItem('zoo_likes_npc_zoo_tiger')) || 0; },
+        set likes(val) { localStorage.setItem('zoo_likes_npc_zoo_tiger', val); },
+        spriteStyle: { gender: 'male', skinColor: '#f97316', hairColor: '#1e293b', outfitColor: '#1e293b' },
+        dialogue: ['어흥! 숲속의 왕 호랑이가 늠름하게 어슬렁거리고 있습니다.', '크르릉... 가까이 오지 마라냥!']
+    },
+    {
+        id: 'npc_zoo_panda',
+        name: '🐼 판다',
+        role: '동물원 판다',
+        mapX: 80,
+        mapY: 67,
+        get likes() { return parseInt(localStorage.getItem('zoo_likes_npc_zoo_panda')) || 0; },
+        set likes(val) { localStorage.setItem('zoo_likes_npc_zoo_panda', val); },
+        spriteStyle: { gender: 'female', skinColor: '#f8fafc', hairColor: '#0f172a', outfitColor: '#0f172a' },
+        dialogue: ['우적우적... 맛있는 대나무를 먹느라 정신이 없습니다.', '하루 종일 누워서 뒹굴거리는 게 제 일과랍니다.']
+    },
+    {
+        id: 'npc_zoo_lion',
+        name: '🦁 사자',
+        role: '동물원 사자',
+        mapX: 84,
+        mapY: 67,
+        get likes() { return parseInt(localStorage.getItem('zoo_likes_npc_zoo_lion')) || 0; },
+        set likes(val) { localStorage.setItem('zoo_likes_npc_zoo_lion', val); },
+        spriteStyle: { gender: 'male', skinColor: '#fbbf24', hairColor: '#78350f', outfitColor: '#78350f' },
+        dialogue: ['크아앙! 멋진 갈기를 뽐내며 낮잠을 자고 있습니다.', '쿨쿨... 사자도 졸릴 때는 어쩔 수 없군요.']
+    },
+    {
+        id: 'npc_zoo_bear',
+        name: '🐻 곰',
+        role: '동물원 곰',
+        mapX: 78,
+        mapY: 71,
+        get likes() { return parseInt(localStorage.getItem('zoo_likes_npc_zoo_bear')) || 0; },
+        set likes(val) { localStorage.setItem('zoo_likes_npc_zoo_bear', val); },
+        spriteStyle: { gender: 'male', skinColor: '#78350f', hairColor: '#451a03', outfitColor: '#451a03' },
+        dialogue: ['어슬렁어슬렁... 달콤한 꿀벌집을 찾고 있습니다.', '둥실둥실 무거운 몸으로 인사를 건냅니다.']
+    },
+    {
+        id: 'npc_zoo_rabbit',
+        name: '🐰 토끼',
+        role: '동물원 토끼',
+        mapX: 82,
+        mapY: 71,
+        get likes() { return parseInt(localStorage.getItem('zoo_likes_npc_zoo_rabbit')) || 0; },
+        set likes(val) { localStorage.setItem('zoo_likes_npc_zoo_rabbit', val); },
+        spriteStyle: { gender: 'female', skinColor: '#ffd1d1', hairColor: '#ffffff', outfitColor: '#ffffff' },
+        dialogue: ['깡총깡총! 귀여운 토끼가 풀을 뜯어먹고 있습니다.', '쫑긋쫑긋, 제 귀가 참 크죠?']
+    }
+];
+
 function getNPCs() {
-    return cachedNPCs;
+    return [...cachedNPCs, ...ZOO_ANIMALS];
 }
 
 function getQuizzes() {
@@ -288,6 +355,7 @@ async function syncCurrentUser() {
     if (!currentUser || !currentServer) return;
     
     // 로컬 즉시 갱신 (Optimistic Update)
+    lastLocalChangeTime = Date.now();
     const idx = cachedUsers.findIndex(u => u.username === currentUser.username);
     if (idx !== -1) {
         cachedUsers[idx] = JSON.parse(JSON.stringify(currentUser));
@@ -522,6 +590,52 @@ function drawPixelCharacter(ctx, style = {}, direction = 'down', equipped = []) 
             drawPixelRect(10, 3, 1, 1, '#fef08a');
         }
     }
+
+    // 🚲 친환경 자전거 (Bicycle)
+    if (equipped.includes('item_bicycle')) {
+        const frameColor = '#ef4444'; // Red bicycle frame
+        const wheelColor = '#475569'; // Dark gray wheels
+        if (direction === 'left' || direction === 'right') {
+            const isLeft = direction === 'left';
+            const frontWheelX = isLeft ? 2 : 12;
+            const backWheelX = isLeft ? 12 : 2;
+            // 바퀴 2개
+            drawPixelRect(frontWheelX, 13, 2, 2, wheelColor);
+            drawPixelRect(backWheelX, 13, 2, 2, wheelColor);
+            // 자전거 체인/프레임
+            drawPixelRect(3, 14, 10, 1, frameColor);
+            drawPixelRect(6, 12, 1, 2, frameColor); // 안장 기둥
+            drawPixelRect(5, 11, 3, 1, '#1e293b'); // 안장
+            // 핸들
+            const handleX = isLeft ? 3 : 11;
+            drawPixelRect(handleX, 11, 1, 3, frameColor);
+            drawPixelRect(isLeft ? 2 : 10, 10, 3, 1, '#1e293b');
+        } else { // down or up
+            // 좌우 바퀴 삐져나오게
+            drawPixelRect(2, 13, 2, 2, wheelColor);
+            drawPixelRect(12, 13, 2, 2, wheelColor);
+            // 프레임 가로바
+            drawPixelRect(3, 14, 10, 1, frameColor);
+            // 핸들 가로바
+            drawPixelRect(3, 11, 10, 1, '#1e293b');
+            drawPixelRect(7, 11, 2, 3, frameColor);
+        }
+    }
+
+    // 🛹 힙한 스케이트보드 (Skateboard)
+    if (equipped.includes('item_skateboard')) {
+        const boardColor = '#10b981'; // Green board
+        const wheelColor = '#ffd54f'; // Yellow wheels
+        if (direction === 'left' || direction === 'right') {
+            drawPixelRect(2, 14, 12, 1, boardColor); // 데크 판
+            drawPixelRect(3, 15, 1, 1, wheelColor);  // 앞바퀴
+            drawPixelRect(12, 15, 1, 1, wheelColor); // 뒷바퀴
+        } else { // down or up
+            drawPixelRect(3, 14, 10, 1, boardColor);
+            drawPixelRect(4, 15, 1, 1, wheelColor);
+            drawPixelRect(11, 15, 1, 1, wheelColor);
+        }
+    }
 }
 
 // Phaser 캐릭터 다방향 텍스처 등록
@@ -678,6 +792,130 @@ function generateMapTiles(scene) {
     hgCtx.fillStyle = '#2e7d32'; hgCtx.beginPath(); hgCtx.moveTo(48, 2); hgCtx.lineTo(0, 32); hgCtx.lineTo(96, 32); hgCtx.closePath(); hgCtx.fill();
     hgCtx.fillStyle = '#3e2723'; hgCtx.fillRect(38, 52, 20, 28);
     houseGreen.refresh();
+
+    // 노란 지붕 집
+    const houseYellow = scene.textures.createCanvas('obj-house-yellow', 96, 80);
+    const hyCtx = houseYellow.context;
+    hyCtx.fillStyle = '#fff9c4'; hyCtx.fillRect(8, 32, 80, 48);
+    hyCtx.fillStyle = '#fbc02d'; hyCtx.beginPath(); hyCtx.moveTo(48, 2); hyCtx.lineTo(0, 32); hyCtx.lineTo(96, 32); hyCtx.closePath(); hyCtx.fill();
+    hyCtx.fillStyle = '#795548'; hyCtx.fillRect(38, 52, 20, 28);
+    houseYellow.refresh();
+
+    // 보라 지붕 집
+    const housePurple = scene.textures.createCanvas('obj-house-purple', 96, 80);
+    const hpCtx = housePurple.context;
+    hpCtx.fillStyle = '#f3e5f5'; hpCtx.fillRect(8, 32, 80, 48);
+    hpCtx.fillStyle = '#8e24aa'; hpCtx.beginPath(); hpCtx.moveTo(48, 2); hpCtx.lineTo(0, 32); hpCtx.lineTo(96, 32); hpCtx.closePath(); hpCtx.fill();
+    hpCtx.fillStyle = '#5d4037'; hpCtx.fillRect(38, 52, 20, 28);
+    housePurple.refresh();
+
+    // 핑크 지붕 집
+    const housePink = scene.textures.createCanvas('obj-house-pink', 96, 80);
+    const hpiCtx = housePink.context;
+    hpiCtx.fillStyle = '#fce4ec'; hpiCtx.fillRect(8, 32, 80, 48);
+    hpiCtx.fillStyle = '#ec407a'; hpiCtx.beginPath(); hpiCtx.moveTo(48, 2); hpiCtx.lineTo(0, 32); hpiCtx.lineTo(96, 32); hpiCtx.closePath(); hpiCtx.fill();
+    hpiCtx.fillStyle = '#8d6e63'; hpiCtx.fillRect(38, 52, 20, 28);
+    housePink.refresh();
+
+    // 아늑한 카페
+    const cafe = scene.textures.createCanvas('obj-cafe', 96, 80);
+    const cCtx = cafe.context;
+    cCtx.fillStyle = '#efebe9'; cCtx.fillRect(8, 32, 80, 48);
+    cCtx.fillStyle = '#5d4037'; cCtx.fillRect(0, 20, 96, 12);
+    for (let cx = 4; cx < 92; cx += 12) {
+        cCtx.fillStyle = (Math.floor(cx / 12) % 2 === 0) ? '#2e7d32' : '#ffffff';
+        cCtx.fillRect(cx, 32, 12, 10);
+    }
+    cCtx.fillStyle = '#8d6e63'; cCtx.fillRect(38, 52, 20, 28);
+    cCtx.fillStyle = '#795548'; cCtx.fillRect(16, 44, 12, 8);
+    cCtx.fillRect(28, 46, 2, 4);
+    cCtx.fillStyle = '#ffffff'; cCtx.fillRect(18, 42, 2, 2); cCtx.fillRect(22, 42, 2, 2);
+    cafe.refresh();
+
+    // 이쁜 미니 상점
+    const store = scene.textures.createCanvas('obj-store', 96, 80);
+    const stCtx = store.context;
+    stCtx.fillStyle = '#fafafa'; stCtx.fillRect(8, 32, 80, 48);
+    stCtx.fillStyle = '#ffb300'; stCtx.fillRect(0, 20, 96, 12);
+    for (let cx = 4; cx < 92; cx += 12) {
+        stCtx.fillStyle = (Math.floor(cx / 12) % 2 === 0) ? '#e53935' : '#ffffff';
+        stCtx.fillRect(cx, 32, 12, 10);
+    }
+    stCtx.fillStyle = '#4e342e'; stCtx.fillRect(38, 52, 20, 28);
+    stCtx.fillStyle = '#90a4ae'; stCtx.fillRect(12, 48, 20, 16);
+    store.refresh();
+
+    // 큰 학교 건물 (128x96)
+    const school = scene.textures.createCanvas('obj-school', 128, 96);
+    const scCtx = school.context;
+    scCtx.fillStyle = '#b71c1c'; scCtx.fillRect(12, 24, 104, 72);
+    scCtx.fillStyle = '#e0e0e0'; scCtx.fillRect(48, 8, 32, 16);
+    scCtx.fillStyle = '#37474f';
+    scCtx.beginPath(); scCtx.moveTo(64, 0); scCtx.lineTo(44, 8); scCtx.lineTo(84, 8); scCtx.closePath(); scCtx.fill();
+    scCtx.fillStyle = '#ffffff'; scCtx.beginPath(); scCtx.arc(64, 16, 5, 0, Math.PI * 2); scCtx.fill();
+    scCtx.fillStyle = '#000000'; scCtx.fillRect(63, 13, 2, 4);
+    scCtx.fillStyle = '#90a4ae';
+    for (let cy = 32; cy < 70; cy += 18) {
+        for (let cx = 20; cx < 110; cx += 20) {
+            if (cx !== 60) scCtx.fillRect(cx, cy, 12, 10);
+        }
+    }
+    scCtx.fillStyle = '#5d4037'; scCtx.fillRect(52, 68, 24, 28);
+    school.refresh();
+
+    // 놀이공원 회전목마 (96x96)
+    const carousel = scene.textures.createCanvas('obj-carousel', 96, 96);
+    const carCtx = carousel.context;
+    carCtx.fillStyle = '#37474f'; carCtx.fillRect(12, 40, 72, 8);
+    carCtx.fillStyle = '#ef5350'; carCtx.beginPath(); carCtx.moveTo(48, 8); carCtx.lineTo(8, 40); carCtx.lineTo(88, 40); carCtx.closePath(); carCtx.fill();
+    carCtx.fillStyle = '#ffca28';
+    carCtx.beginPath(); carCtx.moveTo(48, 8); carCtx.lineTo(24, 40); carCtx.lineTo(32, 40); carCtx.closePath(); carCtx.fill();
+    carCtx.beginPath(); carCtx.moveTo(48, 8); carCtx.lineTo(64, 40); carCtx.lineTo(72, 40); carCtx.closePath(); carCtx.fill();
+    carCtx.fillStyle = '#b0bec5';
+    carCtx.fillRect(20, 48, 4, 36);
+    carCtx.fillRect(46, 48, 4, 36);
+    carCtx.fillRect(72, 48, 4, 36);
+    carCtx.fillStyle = '#f8fafc'; carCtx.fillRect(30, 60, 8, 8); carCtx.fillRect(58, 62, 8, 8);
+    carCtx.fillStyle = '#ffd54f'; carCtx.beginPath(); carCtx.arc(48, 66, 12, 0, Math.PI * 2); carCtx.fill();
+    carCtx.fillStyle = '#90a4ae'; carCtx.fillRect(8, 84, 80, 8);
+    carousel.refresh();
+
+    // 놀이공원 대관람차 (96x112)
+    const ferris = scene.textures.createCanvas('obj-ferris', 96, 112);
+    const feCtx = ferris.context;
+    feCtx.strokeStyle = '#78909c';
+    feCtx.lineWidth = 4;
+    feCtx.beginPath(); feCtx.moveTo(48, 48); feCtx.lineTo(24, 108); feCtx.moveTo(48, 48); feCtx.lineTo(72, 108); feCtx.stroke();
+    feCtx.strokeStyle = '#29b6f6';
+    feCtx.lineWidth = 3;
+    feCtx.beginPath(); feCtx.arc(48, 48, 36, 0, Math.PI * 2); feCtx.stroke();
+    feCtx.strokeStyle = '#b0bec5';
+    feCtx.lineWidth = 1;
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+        feCtx.beginPath(); feCtx.moveTo(48, 48); feCtx.lineTo(48 + Math.cos(a) * 36, 48 + Math.sin(a) * 36); feCtx.stroke();
+    }
+    const capColors = ['#ef5350', '#ffca28', '#66bb6a', '#ab47bc', '#ec407a'];
+    let cIdx = 0;
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+        feCtx.fillStyle = capColors[cIdx++ % capColors.length];
+        feCtx.fillRect(48 + Math.cos(a) * 36 - 5, 48 + Math.sin(a) * 36 - 5, 10, 8);
+    }
+    feCtx.fillStyle = '#37474f'; feCtx.beginPath(); feCtx.arc(48, 48, 6, 0, Math.PI * 2); feCtx.fill();
+    ferris.refresh();
+
+    // 동물원 아치 입구 (96x80)
+    const zooGate = scene.textures.createCanvas('obj-zoo-gate', 96, 80);
+    const zCtx = zooGate.context;
+    zCtx.fillStyle = '#a1887f'; zCtx.fillRect(12, 16, 12, 64); zCtx.fillRect(72, 16, 12, 64);
+    zCtx.fillStyle = '#5d4037'; zCtx.fillRect(12, 8, 72, 12);
+    zCtx.fillStyle = '#2e7d32';
+    zCtx.beginPath(); zCtx.arc(20, 10, 10, 0, Math.PI * 2); zCtx.fill();
+    zCtx.beginPath(); zCtx.arc(48, 8, 14, 0, Math.PI * 2); zCtx.fill();
+    zCtx.beginPath(); zCtx.arc(76, 10, 10, 0, Math.PI * 2); zCtx.fill();
+    zCtx.fillStyle = '#ffd54f';
+    zCtx.font = 'bold 8px monospace';
+    zCtx.fillText('ZOO', 38, 16);
+    zooGate.refresh();
 
     const mart = scene.textures.createCanvas('obj-mart', 128, 80);
     const mCtx = mart.context;
@@ -1193,29 +1431,36 @@ class WorldScene extends Phaser.Scene {
             { x: 12, y: 21, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 24, y: 12, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 24, y: 22, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 28, y: 15, type: 'obj-house-yellow', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 12, y: 27, type: 'obj-house-pink', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            // === 북동쪽 학교 ===
+            { x: 48, y: 12, type: 'obj-school', cx: 64, cy: 48, cw: 120, ch: 48, co: 24 },
             // === 중심서 구역 (x:10~43, y:41~78) ===
             { x: 12, y: 42, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
-            { x: 12, y: 62, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 12, y: 72, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 12, y: 62, type: 'obj-store', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 12, y: 72, type: 'obj-house-yellow', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 26, y: 42, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 26, y: 52, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 26, y: 62, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 26, y: 62, type: 'obj-cafe', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 26, y: 72, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             // === 남쪽 광장 분수대 (x=54, y=85)
             { x: 54, y: 85, type: 'obj-fountain', cx: 32, cy: 32, cw: 56, ch: 40, co: 8 },
             // === 강 B 동쪽 구역 (x:68~90, y:18~90) ===
-            { x: 70, y: 20, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
+            { x: 70, y: 20, type: 'obj-store', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 70, y: 32, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 70, y: 47, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 70, y: 60, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 70, y: 74, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 70, y: 60, type: 'obj-house-purple', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 70, y: 74, type: 'obj-house-pink', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 70, y: 87, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 83, y: 20, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 83, y: 32, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 83, y: 32, type: 'obj-cafe', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 83, y: 47, type: 'obj-mart', cx: 64, cy: 40, cw: 116, ch: 40, co: 16 },
             { x: 83, y: 60, type: 'obj-house-blue', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
-            { x: 83, y: 74, type: 'obj-house-green', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            { x: 83, y: 74, type: 'obj-house-purple', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
             { x: 83, y: 87, type: 'obj-house', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 },
+            // === 남서쪽 놀이공원 구역 ===
+            { x: 16, y: 70, type: 'obj-carousel', cx: 48, cy: 48, cw: 80, ch: 80, co: 8 },
+            { x: 20, y: 74, type: 'obj-ferris', cx: 48, cy: 56, cw: 80, ch: 40, co: 32 },
             // === 선착장 ===
             // 동쪽 강 B 연접 선착장 (x=64, y=42)
             { x: 64, y: 42, type: 'obj-dock', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 },
@@ -1229,8 +1474,21 @@ class WorldScene extends Phaser.Scene {
             // === 벤치 ===
             { x: 30, y: 51, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
             { x: 38, y: 51, type: 'obj-bench', cx: 24, cy: 16, cw: 40, ch: 16, co: 8 },
+            // === 동물원 입구 아치 ===
+            { x: 81, y: 75, type: 'obj-zoo-gate', cx: 48, cy: 40, cw: 84, ch: 40, co: 16 }
         ];
 
+        // 동물원 울타리 자동 추가 (x=74~88, y=65~75)
+        for (let x = 74; x <= 88; x++) {
+            structures.push({ x: x, y: 65, type: 'obj-fence', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 });
+            if (x !== 80 && x !== 81 && x !== 82) { // 입구 게이트 영역을 위해 남쪽 울타리 뚫음
+                structures.push({ x: x, y: 75, type: 'obj-fence', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 });
+            }
+        }
+        for (let y = 66; y <= 74; y++) {
+            structures.push({ x: 74, y: y, type: 'obj-fence', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 });
+            structures.push({ x: 88, y: y, type: 'obj-fence', cx: 16, cy: 16, cw: 32, ch: 32, co: 0 });
+        }
 
         structures.forEach(s => {
             const px = s.x * TILE_SIZE + s.cx;
@@ -1302,6 +1560,11 @@ class WorldScene extends Phaser.Scene {
     }
 
     spawnNPCs() {
+        if (this.heartTexts) {
+            this.heartTexts.forEach(h => h.destroy());
+        }
+        this.heartTexts = [];
+
         this.npcGroup.clear(true, true);
         this.npcSprites = {};
 
@@ -1318,6 +1581,26 @@ class WorldScene extends Phaser.Scene {
             sprite.npcData = npc;
             
             this.npcSprites[npc.id] = sprite;
+
+            // 추천 수가 3 이상이면 머리 위에 하트 띄우기
+            if (npc.likes >= 3) {
+                const heart = this.add.text(px, py - 26, '❤️', {
+                    fontFamily: 'Galmuri9, monospace',
+                    fontSize: '11px',
+                    align: 'center'
+                });
+                heart.setOrigin(0.5, 0.5);
+                heart.setDepth(py + 10);
+                this.tweens.add({
+                    targets: heart,
+                    y: py - 32,
+                    duration: 800 + Math.random() * 400,
+                    yoyo: true,
+                    loop: -1,
+                    ease: 'Sine.easeInOut'
+                });
+                this.heartTexts.push(heart);
+            }
         });
     }
 
@@ -1593,6 +1876,13 @@ class WorldScene extends Phaser.Scene {
         // 버프 및 아이템 장착 여부에 따른 이동속도 세팅
         let speed = currentUser.equipped.includes('item_shoes') ? 180 : 120;
         if (currentUser.equipped.includes('item_cat')) speed += 30; // 고양이 꼬리 +30속도
+        if (!onBoat) {
+            if (currentUser.equipped.includes('item_bicycle')) {
+                speed = 220;
+            } else if (currentUser.equipped.includes('item_skateboard')) {
+                speed = 170;
+            }
+        }
         if (onBoat) speed = 150;
         if (activeBuffs.boost) speed = 260;
         else if (activeBuffs.giant) speed = 200;
@@ -1788,6 +2078,43 @@ class WorldScene extends Phaser.Scene {
     handleInteraction() {
         if (this.isInteracting) {
             progressDialogue();
+            return;
+        }
+
+        // 놀이공원 회전목마 탑승 감지
+        const distCarousel = Phaser.Math.Distance.Between(this.player.x, this.player.y, 16 * TILE_SIZE + 48, 70 * TILE_SIZE + 48);
+        if (distCarousel < 60) {
+            this.isInteracting = true;
+            startDialogue({
+                id: 'ride_carousel',
+                name: '🎡 회전목마',
+                role: '놀이기구',
+                dialogues: [
+                    '빙글빙글~ 오색 불빛 아래 회전목마가 돌고 있습니다.',
+                    '목마에 올라타 신나게 달려볼까요? 🎠',
+                    '히히힝! 아주 신나는 탑승이었습니다!'
+                ],
+                spriteStyle: { gender: 'male', skinColor: '#fde68a', hairColor: '#fbc02d', outfitColor: '#ef4444' }
+            });
+            return;
+        }
+
+        // 놀이공원 대관람차 탑승 감지
+        const distFerris = Phaser.Math.Distance.Between(this.player.x, this.player.y, 20 * TILE_SIZE + 48, 74 * TILE_SIZE + 56);
+        if (distFerris < 60) {
+            this.isInteracting = true;
+            startDialogue({
+                id: 'ride_ferris',
+                name: '🎡 대관람차',
+                role: '놀이기구',
+                dialogues: [
+                    '두근두근! 거대한 대관람차가 하늘 높이 돌고 있습니다.',
+                    '관람차 캡슐에 탑승했습니다. 천천히 하늘로 오릅니다...',
+                    '와! 우리동네숲 섬의 방대한 바다와 강이 한눈에 보여요! 🏝️',
+                    '아주 멋진 하늘 여행이었습니다!'
+                ],
+                spriteStyle: { gender: 'female', skinColor: '#fde68a', hairColor: '#fcd34d', outfitColor: '#29b6f6' }
+            });
             return;
         }
 
@@ -2289,6 +2616,8 @@ function setupMinimapClick() {
 // ==========================================================================
 
 function updateSidebarNPCList() {
+    if (!currentUser || !currentServer) return;
+    
     const npcs = getNPCs();
     document.getElementById('npc-count').innerText = npcs.length;
     
@@ -2304,9 +2633,14 @@ function updateSidebarNPCList() {
     emptyState.classList.add('hidden');
     activeList.innerHTML = '';
     
+    const isTeacher = currentUser && currentUser.username.startsWith('교사-');
+    
     npcs.forEach(npc => {
         const li = document.createElement('li');
         li.className = 'npc-item';
+        
+        const isLiked = currentUser.likedNPCs && currentUser.likedNPCs.includes(npc.id);
+        const deleteBtnHTML = isTeacher ? `<button class="btn-icon delete" title="삭제" data-id="${npc.id}">&times;</button>` : '';
         
         li.innerHTML = `
             <div class="npc-item-info">
@@ -2316,11 +2650,13 @@ function updateSidebarNPCList() {
                 <div class="npc-item-details">
                     <span class="npc-item-name">${npc.name}</span>
                     <span class="npc-item-role">${npc.role} (X:${npc.mapX}, Y:${npc.mapY})</span>
+                    <span class="npc-item-likes" style="font-size: 11px; color: #f43f5e; margin-top: 2px; display: inline-block;">❤️ 추천 ${npc.likes || 0}</span>
                 </div>
             </div>
             <div class="npc-item-actions">
+                <button class="btn-icon btn-like-npc" title="추천" data-id="${npc.id}">${isLiked ? '❤️' : '🤍'}</button>
                 <button class="btn-icon btn-teleport" title="이동" data-x="${npc.mapX}" data-y="${npc.mapY}">🚶</button>
-                <button class="btn-icon delete" title="삭제" data-id="${npc.id}">&times;</button>
+                ${deleteBtnHTML}
             </div>
         `;
         
@@ -2344,12 +2680,49 @@ function updateSidebarNPCList() {
             }
         });
         
-        li.querySelector('.delete').addEventListener('click', (e) => {
+        // 추천 버튼 클릭 이벤트
+        li.querySelector('.btn-like-npc').addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (confirm(`'${npc.name}' 님을 동네 목록에서 삭제하시겠습니까?`)) {
-                deleteNPC(npc.id);
+            if (!currentUser) return;
+            
+            currentUser.likedNPCs = currentUser.likedNPCs || [];
+            const likedIdx = currentUser.likedNPCs.indexOf(npc.id);
+            
+            if (likedIdx !== -1) {
+                // 이미 추천함 -> 취소
+                npc.likes = Math.max(0, (npc.likes || 0) - 1);
+                currentUser.likedNPCs.splice(likedIdx, 1);
+                showHUDMessage(`💔 '${npc.name}' 님의 추천을 취소했습니다.`);
+            } else {
+                // 추천하기
+                npc.likes = (npc.likes || 0) + 1;
+                currentUser.likedNPCs.push(npc.id);
+                showHUDMessage(`💖 '${npc.name}' 님을 추천했습니다!`);
             }
+            
+            // UI 즉시 업데이트
+            updateSidebarNPCList();
+            
+            // 데이터 동기화
+            if (npc.id.startsWith('npc_zoo_')) {
+                localStorage.setItem(`zoo_likes_${npc.id}`, npc.likes);
+                if (gameInstance && gameInstance.scene.isActive('WorldScene')) {
+                    gameInstance.scene.getScene('WorldScene').spawnNPCs();
+                }
+            } else {
+                await saveNPC(npc);
+            }
+            await syncCurrentUser();
         });
+        
+        if (isTeacher) {
+            li.querySelector('.delete').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm(`'${npc.name}' 님을 동네 목록에서 삭제하시겠습니까?`)) {
+                    deleteNPC(npc.id);
+                }
+            });
+        }
     });
 }
 
@@ -2382,6 +2755,11 @@ async function saveNPC(npc) {
 }
 
 async function deleteNPC(id) {
+    if (!currentUser || !currentUser.username.startsWith('교사-')) {
+        alert('NPC를 삭제할 권한이 없습니다. (교사 계정만 가능)');
+        return;
+    }
+    
     cachedNPCs = cachedNPCs.filter(n => n.id !== id);
     updateSidebarNPCList();
     if (gameInstance && gameInstance.scene.isActive('WorldScene')) {
@@ -4203,13 +4581,40 @@ function setupAdminQuizForm() {
 }
 
 // 실내 문 좌표 목록 및 이동 씬 정의
+// 실내 문 좌표 목록 및 이동 씬 정의
 const HOUSE_DOORS = [
+    // 기존 집 및 마트
     { x: 12 * TILE_SIZE + 48, y: 11 * TILE_SIZE + 82, type: 'cozy_home' },
     { x: 12 * TILE_SIZE + 48, y: 21 * TILE_SIZE + 82, type: 'cozy_home' },
     { x: 24 * TILE_SIZE + 48, y: 12 * TILE_SIZE + 82, type: 'cozy_home' },
+    { x: 24 * TILE_SIZE + 48, y: 22 * TILE_SIZE + 82, type: 'cozy_home' },
     { x: 12 * TILE_SIZE + 64, y: 42 * TILE_SIZE + 82, type: 'mart_interior' },
     { x: 26 * TILE_SIZE + 48, y: 52 * TILE_SIZE + 82, type: 'cozy_home' },
-    { x: 83 * TILE_SIZE + 64, y: 47 * TILE_SIZE + 82, type: 'classroom' }
+    { x: 26 * TILE_SIZE + 48, y: 72 * TILE_SIZE + 82, type: 'cozy_home' },
+    { x: 70 * TILE_SIZE + 48, y: 32 * TILE_SIZE + 82, type: 'cozy_home' },
+    { x: 70 * TILE_SIZE + 48, y: 47 * TILE_SIZE + 82, type: 'cozy_home' },
+    { x: 70 * TILE_SIZE + 48, y: 87 * TILE_SIZE + 82, type: 'cozy_home' },
+    { x: 83 * TILE_SIZE + 48, y: 60 * TILE_SIZE + 82, type: 'cozy_home' },
+    { x: 83 * TILE_SIZE + 48, y: 87 * TILE_SIZE + 82, type: 'cozy_home' },
+    
+    // 신규 추가된 집들 (노랑, 보라, 핑크)
+    { x: 12 * TILE_SIZE + 48, y: 72 * TILE_SIZE + 82, type: 'cozy_home' }, // 노란 집 1
+    { x: 28 * TILE_SIZE + 48, y: 15 * TILE_SIZE + 82, type: 'cozy_home' }, // 노란 집 2
+    { x: 70 * TILE_SIZE + 48, y: 60 * TILE_SIZE + 82, type: 'cozy_home' }, // 보라 집 1
+    { x: 83 * TILE_SIZE + 48, y: 74 * TILE_SIZE + 82, type: 'cozy_home' }, // 보라 집 2
+    { x: 70 * TILE_SIZE + 48, y: 74 * TILE_SIZE + 82, type: 'cozy_home' }, // 핑크 집 1
+    { x: 12 * TILE_SIZE + 48, y: 27 * TILE_SIZE + 82, type: 'cozy_home' }, // 핑크 집 2
+
+    // 신규 카페
+    { x: 26 * TILE_SIZE + 48, y: 62 * TILE_SIZE + 82, type: 'cafe_interior' }, // 카페 1
+    { x: 83 * TILE_SIZE + 48, y: 32 * TILE_SIZE + 82, type: 'cafe_interior' }, // 카페 2
+
+    // 신규 학교 건물 (128x96 이므로 문을 중앙인 cx=64에 둔다)
+    { x: 48 * TILE_SIZE + 64, y: 12 * TILE_SIZE + 98, type: 'classroom' },
+
+    // 신규 미니 상점
+    { x: 70 * TILE_SIZE + 48, y: 20 * TILE_SIZE + 82, type: 'mart_interior' }, // 상점 1
+    { x: 12 * TILE_SIZE + 48, y: 62 * TILE_SIZE + 82, type: 'mart_interior' }  // 상점 2
 ];
 
 class IndoorScene extends Phaser.Scene {
@@ -4331,6 +4736,25 @@ class IndoorScene extends Phaser.Scene {
             const rack2 = this.add.rectangle(startX + 7 * TILE_SIZE + 16, startY + 4 * TILE_SIZE, 16, 64, 0x78350f);
             this.physics.add.existing(rack2, true);
             this.staticObstacles.add(rack2);
+        } else if (this.indoorType === 'cafe_interior') {
+            // 카운터 바
+            const counter = this.add.rectangle(startX + 5 * TILE_SIZE + 16, startY + 2 * TILE_SIZE + 16, TILE_SIZE * 4, 16, 0x8d6e63);
+            this.physics.add.existing(counter, true);
+            this.staticObstacles.add(counter);
+            
+            // 커피 머신 장식
+            const coffeeMachine = this.add.rectangle(startX + 5 * TILE_SIZE + 16, startY + TILE_SIZE + 24, 24, 16, 0x37474f);
+            this.physics.add.existing(coffeeMachine, true);
+            this.staticObstacles.add(coffeeMachine);
+            
+            // 원형 테이블 2개
+            const table1 = this.add.circle(startX + 2 * TILE_SIZE + 16, startY + 5 * TILE_SIZE + 16, 16, 0xd7ccc8);
+            this.physics.add.existing(table1, true);
+            this.staticObstacles.add(table1);
+            
+            const table2 = this.add.circle(startX + 7 * TILE_SIZE + 16, startY + 5 * TILE_SIZE + 16, 16, 0xd7ccc8);
+            this.physics.add.existing(table2, true);
+            this.staticObstacles.add(table2);
         } else {
             // 침대
             const bed = this.add.rectangle(startX + 2 * TILE_SIZE + 16, startY + 2 * TILE_SIZE + 16, 24, 40, 0xd97706);
@@ -4360,6 +4784,11 @@ class IndoorScene extends Phaser.Scene {
             role = '점원';
             dialogue = ['어서오세요! 필요한 물건이 있다면 패션 상점에서 골드를 내고 구매해보세요.', '러닝 슈즈를 사면 엄청 빨라진답니다!'];
             style = { gender: 'male', skinColor: '#ffdbac', hairColor: '#263238', outfitColor: '#eab308' };
+        } else if (this.indoorType === 'cafe_interior') {
+            name = '바리스타 민우';
+            role = '카페 주인';
+            dialogue = ['어서오세요! 향긋한 커피 한 잔 어떠신가요?', '오늘도 좋은 하루 보내세요. 커피 향이 참 좋죠?'];
+            style = { gender: 'male', skinColor: '#ffdbac', hairColor: '#37474f', outfitColor: '#8d6e63' };
         }
         
         this.npcData = {
