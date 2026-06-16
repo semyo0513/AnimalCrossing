@@ -909,26 +909,131 @@ function generateMapTiles(scene) {
     sCtx.fillRect(6, 6, 4, 2); sCtx.fillRect(20, 24, 4, 2);
     sand.refresh();
 
-    const boat = scene.textures.createCanvas('obj-boat', 32, 32);
+    // 4방향을 지원하는 대형 보트 텍스처 (192x48, 각 프레임은 48x48)
+    const boat = scene.textures.createCanvas('obj-boat', 192, 48);
     const btCtx = boat.context;
-    btCtx.fillStyle = '#8b5a2b'; // Wood color
-    btCtx.beginPath();
-    btCtx.ellipse(16, 16, 14, 10, 0, 0, Math.PI * 2);
-    btCtx.fill();
-    btCtx.fillStyle = '#fef08a'; // Inner boat
-    btCtx.beginPath();
-    btCtx.ellipse(16, 16, 10, 6, 0, 0, Math.PI * 2);
-    btCtx.fill();
+    const boatDirections = ['down', 'up', 'left', 'right'];
+    
+    boatDirections.forEach((dir, index) => {
+        const ox = index * 48; // 각 방향의 X 오프셋
+        
+        btCtx.save();
+        btCtx.translate(ox + 24, 24); // 각 프레임의 중심으로 원점 이동
+        
+        // 방향에 따라 캔버스 회전
+        if (dir === 'up') {
+            btCtx.rotate(Math.PI);
+        } else if (dir === 'left') {
+            btCtx.rotate(Math.PI / 2);
+        } else if (dir === 'right') {
+            btCtx.rotate(-Math.PI / 2);
+        }
+        // 'down'은 회전 없음 (아래쪽을 향함)
+        
+        // 1. 외곽 목재 선체 그리기
+        btCtx.fillStyle = '#7c2d12'; // 풍부한 마호가니 목재 색상
+        btCtx.beginPath();
+        btCtx.ellipse(0, 0, 20, 13, 0, 0, Math.PI * 2);
+        btCtx.fill();
+        
+        // 선체 외각선 테두리
+        btCtx.strokeStyle = '#451a03';
+        btCtx.lineWidth = 2;
+        btCtx.stroke();
+        
+        // 2. 내부 갑판 그리기
+        btCtx.fillStyle = '#d97706'; // 따뜻한 오렌지 브라운 갑판
+        btCtx.beginPath();
+        btCtx.ellipse(0, 0, 16, 9, 0, 0, Math.PI * 2);
+        btCtx.fill();
+        
+        // 3. 목재 벤치 시트 그리기 (2개)
+        btCtx.fillStyle = '#b45309';
+        btCtx.fillRect(-10, -7, 4, 14);
+        btCtx.fillRect(6, -7, 4, 14);
+        
+        // 4. 돛대(flagpole) 그리기
+        btCtx.strokeStyle = '#94a3b8';
+        btCtx.lineWidth = 1.5;
+        btCtx.beginPath();
+        btCtx.moveTo(0, 0);
+        btCtx.lineTo(0, -12);
+        btCtx.stroke();
+        
+        // 5. 펄럭이는 푸른색 돛(sail) 그리기
+        btCtx.fillStyle = '#38bdf8';
+        btCtx.beginPath();
+        btCtx.moveTo(0, -4);
+        btCtx.lineTo(0, -12);
+        btCtx.lineTo(8, -8);
+        btCtx.closePath();
+        btCtx.fill();
+        
+        btCtx.restore();
+    });
     boat.refresh();
+    
+    // Phaser 텍스처 프레임 추가 (setFrame 호출 시 방향별 텍스처 표시 가능)
+    boat.add('down', 0, 0, 0, 48, 48);
+    boat.add('up', 0, 48, 0, 48, 48);
+    boat.add('left', 0, 96, 0, 48, 48);
+    boat.add('right', 0, 144, 0, 48, 48);
 
+    // 구체화된 선착장 텍스처 (32x32, 세밀한 목재 플랭크 및 고정 볼트, 말뚝 기둥 추가)
     const dock = scene.textures.createCanvas('obj-dock', 32, 32);
     const dkCtx = dock.context;
-    dkCtx.fillStyle = '#5d4037';
+    
+    // 기본 어두운 나무 색
+    dkCtx.fillStyle = '#78350f';
     dkCtx.fillRect(0, 0, 32, 32);
-    dkCtx.fillStyle = '#3e2723';
-    dkCtx.fillRect(0, 6, 32, 2);
-    dkCtx.fillRect(0, 16, 32, 2);
-    dkCtx.fillRect(0, 26, 32, 2);
+    
+    // 수직 목재 널빤지 패턴 (4개 플랭크)
+    dkCtx.fillStyle = '#92400e';
+    dkCtx.fillRect(2, 0, 6, 32);
+    dkCtx.fillRect(10, 0, 6, 32);
+    dkCtx.fillRect(18, 0, 6, 32);
+    dkCtx.fillRect(26, 0, 6, 32);
+    
+    // 나무 하이라이트/밝은 결
+    dkCtx.fillStyle = '#b45309';
+    dkCtx.fillRect(3, 0, 1, 32);
+    dkCtx.fillRect(11, 0, 1, 32);
+    dkCtx.fillRect(19, 0, 1, 32);
+    dkCtx.fillRect(27, 0, 1, 32);
+    
+    // 널빤지 틈새 그림자
+    dkCtx.fillStyle = '#451a03';
+    dkCtx.fillRect(0, 0, 2, 32);
+    dkCtx.fillRect(8, 0, 2, 32);
+    dkCtx.fillRect(16, 0, 2, 32);
+    dkCtx.fillRect(24, 0, 2, 32);
+    
+    // 가로질러 깎인 무늬
+    dkCtx.fillStyle = '#451a03';
+    dkCtx.fillRect(2, 8, 6, 1);
+    dkCtx.fillRect(10, 20, 6, 1);
+    dkCtx.fillRect(18, 12, 6, 1);
+    dkCtx.fillRect(26, 24, 6, 1);
+    
+    // 고정용 철제 볼트 (위쪽/아래쪽 각 널빤지 고정)
+    dkCtx.fillStyle = '#94a3b8';
+    dkCtx.fillRect(4, 3, 2, 2);
+    dkCtx.fillRect(12, 3, 2, 2);
+    dkCtx.fillRect(20, 3, 2, 2);
+    dkCtx.fillRect(28, 3, 2, 2);
+    dkCtx.fillRect(4, 27, 2, 2);
+    dkCtx.fillRect(12, 27, 2, 2);
+    dkCtx.fillRect(20, 27, 2, 2);
+    dkCtx.fillRect(28, 27, 2, 2);
+    
+    // 아래쪽 귀퉁이의 나무 선착장 말뚝(기둥) 표현
+    dkCtx.fillStyle = '#b45309'; // 나무 기둥
+    dkCtx.fillRect(0, 26, 3, 6);
+    dkCtx.fillRect(29, 26, 3, 6);
+    dkCtx.fillStyle = '#1e293b'; // 기둥 철제 모자
+    dkCtx.fillRect(0, 26, 3, 1);
+    dkCtx.fillRect(29, 26, 3, 1);
+    
     dock.refresh();
 
     const tree = scene.textures.createCanvas('obj-tree', 32, 48);
@@ -2316,8 +2421,8 @@ class WorldScene extends Phaser.Scene {
                 showHUDMessage('⛵ 보트에 탑승했습니다! 호수를 건널 수 있습니다.');
             } else {
                 showHUDMessage('⛵ 보트에서 하선했습니다.');
-                let closestDock = dockPositions[0];
-                for (const dock of dockPositions) {
+                let closestDock = dockPositions2[0];
+                for (const dock of dockPositions2) {
                     if (Phaser.Math.Distance.Between(this.player.x, this.player.y, dock.wx, dock.wy) < 48) {
                         closestDock = dock; break;
                     }
@@ -2349,6 +2454,11 @@ class WorldScene extends Phaser.Scene {
         const targetX = x * TILE_SIZE + 16;
         const targetY = y * TILE_SIZE + 16;
         
+        if (onBoat) {
+            onBoat = false;
+            applyPhaserBuffVisuals(Object.keys(activeBuffs).find(k => activeBuffs[k] === true && k !== 'timer'));
+        }
+        
         this.cameras.main.fadeOut(200);
         this.time.delayedCall(200, () => {
             this.player.setPosition(targetX, targetY);
@@ -2359,7 +2469,13 @@ class WorldScene extends Phaser.Scene {
     refreshPlayerSkin() {
         if (!currentUser) return;
         generateCharacterTextureCache(this, 'player', currentUser.spriteStyle, currentUser.equipped);
-        this.player.setTexture('player', 'down');
+        if (onBoat) {
+            this.player.setTexture('obj-boat');
+            this.player.setScale(1.5);
+        } else {
+            this.player.setTexture('player', 'down');
+            this.player.setScale(1);
+        }
         
         // 토끼 머리띠 장착 여부에 따른 모바일 대시 버튼 노출/숨김
         const dashBtn = document.getElementById('dash-button');
@@ -3878,7 +3994,11 @@ function setupLoginSystem() {
 // 13. UI 알림 효과 헬퍼
 // ==========================================================================
 
+const activeHUDMessages = new Set();
 function showHUDMessage(text) {
+    if (activeHUDMessages.has(text)) return;
+    activeHUDMessages.add(text);
+
     const notify = document.createElement('div');
     notify.className = 'hud-gold-toast';
     notify.innerText = text;
@@ -3908,7 +4028,10 @@ function showHUDMessage(text) {
         notify.style.transition = 'all 0.3s ease';
         notify.style.opacity = 0;
         notify.style.transform = 'translate(-50%, -20px)';
-        setTimeout(() => notify.remove(), 300);
+        setTimeout(() => {
+            notify.remove();
+            activeHUDMessages.delete(text);
+        }, 300);
     }, 2500);
 }
 
@@ -4539,7 +4662,7 @@ function applyPhaserBuffVisuals(type) {
     
     if (onBoat) {
         activeScene.player.setTexture('obj-boat');
-        activeScene.player.setScale(1.2);
+        activeScene.player.setScale(1.5);
     } else {
         activeScene.player.setTexture('player');
     }
