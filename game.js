@@ -13,7 +13,7 @@
 // 1. 데이터베이스 관리자 (Google Apps Script API 백엔드)
 // ==========================================================================
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycby6NebVc2rYH3BP2grZGGkJYFKayjCN8m8RJj3D7YikwHT_o3dl3Sdo0dMJh0aq12wa/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwPbrEsL14yfuGPQe4-Sz6ajioq14f243sCFgzVTaWhbbA92E2ceuNul4ifztCqzxCM/exec';
 
 // Safe localStorage wrapper to prevent crashes in private/restricted browsing modes
 const safeStorage = (() => {
