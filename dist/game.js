@@ -113,6 +113,7 @@ const DEFAULT_NPCS = [
         id: 'npc_default_1',
         name: '경비 아저씨',
         role: '온누리 아파트 지킴이',
+        creator: '시스템',
         spriteStyle: {
             gender: 'male',
             skinColor: '#ffd59a',
@@ -132,6 +133,7 @@ const DEFAULT_NPCS = [
         id: 'npc_default_2',
         name: '붕어빵 사장님',
         role: '동네 최고의 간식 요리사',
+        creator: '시스템',
         spriteStyle: {
             gender: 'female',
             skinColor: '#ffdbac',
@@ -151,6 +153,7 @@ const DEFAULT_NPCS = [
         id: 'npc_default_3',
         name: '담임 선생님',
         role: '우리동네 초등학교 교사',
+        creator: '시스템',
         spriteStyle: {
             gender: 'female',
             skinColor: '#f1c27d',
@@ -451,6 +454,7 @@ const ZOO_ANIMALS = [
         id: 'npc_zoo_tiger',
         name: '🐯 호랑이',
         role: '동물원 호랑이',
+        creator: '시스템',
         mapX: 76,
         mapY: 67,
         get likes() { return parseInt(safeStorage.getItem('zoo_likes_npc_zoo_tiger')) || 0; },
@@ -462,6 +466,7 @@ const ZOO_ANIMALS = [
         id: 'npc_zoo_panda',
         name: '🐼 판다',
         role: '동물원 판다',
+        creator: '시스템',
         mapX: 80,
         mapY: 67,
         get likes() { return parseInt(safeStorage.getItem('zoo_likes_npc_zoo_panda')) || 0; },
@@ -473,6 +478,7 @@ const ZOO_ANIMALS = [
         id: 'npc_zoo_lion',
         name: '🦁 사자',
         role: '동물원 사자',
+        creator: '시스템',
         mapX: 84,
         mapY: 67,
         get likes() { return parseInt(safeStorage.getItem('zoo_likes_npc_zoo_lion')) || 0; },
@@ -484,6 +490,7 @@ const ZOO_ANIMALS = [
         id: 'npc_zoo_bear',
         name: '🐻 곰',
         role: '동물원 곰',
+        creator: '시스템',
         mapX: 78,
         mapY: 71,
         get likes() { return parseInt(safeStorage.getItem('zoo_likes_npc_zoo_bear')) || 0; },
@@ -495,6 +502,7 @@ const ZOO_ANIMALS = [
         id: 'npc_zoo_rabbit',
         name: '🐰 토끼',
         role: '동물원 토끼',
+        creator: '시스템',
         mapX: 82,
         mapY: 71,
         get likes() { return parseInt(safeStorage.getItem('zoo_likes_npc_zoo_rabbit')) || 0; },
@@ -2944,7 +2952,7 @@ function updateSidebarNPCList() {
                 </div>
                 <div class="npc-item-details">
                     <span class="npc-item-name">${npc.name}</span>
-                    <span class="npc-item-role">${npc.role} (X:${npc.mapX}, Y:${npc.mapY})</span>
+                    <span class="npc-item-role">${npc.role} (X:${npc.mapX}, Y:${npc.mapY}) | 등록: ${npc.creator || '시스템'}</span>
                     <span class="npc-item-likes" style="font-size: 11px; color: #f43f5e; margin-top: 2px; display: inline-block;">❤️ 추천 ${npc.likes || 0}</span>
                 </div>
             </div>
@@ -3427,6 +3435,7 @@ function setupCreatorForm() {
             id: 'npc_' + Date.now(),
             name: name,
             role: role,
+            creator: currentUser ? currentUser.username : '시스템',
             spriteStyle: {
                 gender: selectedGender,
                 skinColor: skinInput.value,
@@ -4204,6 +4213,7 @@ function setupAdminPanel() {
                 role: role,
                 mapX: x,
                 mapY: y,
+                creator: editId ? (cachedNPCs.find(n => n.id === editId)?.creator || currentUser.username) : currentUser.username,
                 spriteStyle: { gender, skinColor: skin, hairColor: hair, outfitColor: outfit },
                 dialogues: dialogues,
                 createdAt: editId ? (cachedNPCs.find(n => n.id === editId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
@@ -4240,7 +4250,8 @@ function renderAdminNPCs() {
     
     npcs.forEach(npc => {
         const tr = document.createElement('tr');
-        const regTimeStr = npc.createdAt ? new Date(npc.createdAt).toLocaleString('ko-KR', { hour12: false }) : '기본 이웃';
+        const creatorStr = ` (등록: ${npc.creator || '시스템'})`;
+        const regTimeStr = (npc.createdAt ? new Date(npc.createdAt).toLocaleString('ko-KR', { hour12: false }) : '기본 이웃') + creatorStr;
         
         tr.innerHTML = `
             <td>
