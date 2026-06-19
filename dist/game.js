@@ -217,11 +217,8 @@ if (!safeStorage.getItem('local_npcs')) {
 if (!safeStorage.getItem('local_quizzes')) {
     safeStorage.setItem('local_quizzes', JSON.stringify([]));
 }
-if (!safeStorage.getItem('local_servers')) {
-    safeStorage.setItem('local_servers', JSON.stringify([
-        { id: 'server_default', name: '🌿 우리동네 기본 숲', owner: '교사-관리자' }
-    ]));
-}
+// local_servers는 실제 시트 데이터만 사용 (가짜 기본값 없음)
+safeStorage.setItem('local_servers', JSON.stringify([])); // 항상 빈 배열로 초기화
 
 function handleLocalAPIFallback(action, data) {
     const getLocal = (key) => JSON.parse(safeStorage.getItem(key)) || [];
@@ -240,7 +237,8 @@ function handleLocalAPIFallback(action, data) {
             return { status: 'success' };
         }
         case 'getServers': {
-            return { servers: getLocal('local_servers') };
+            // 서버 목록은 반드시 실제 시트에서만 가져옴 (로컬 가짜 데이터 차단)
+            return { servers: [] };
         }
         case 'addServer': {
             const servers = getLocal('local_servers');
@@ -324,7 +322,7 @@ function handleLocalAPIFallback(action, data) {
 async function callAPI(action, data = {}) {
     const payload = { action, data };
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 10000); // 10-second timeout
+    const id = setTimeout(() => controller.abort(), 6000); // 6-second timeout (GAS cold start 커버)
 
     try {
         const response = await fetch(GAS_URL, {
@@ -3632,45 +3630,38 @@ async function populateServerList() {
     select.innerHTML = '<option value="">⏳ 서버 목록 불러오는 중...</option>';
     select.disabled = true;
 
-    // 재시도 최대 3회
-    const MAX_RETRIES = 3;
-    let lastError = null;
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    // 최대 2회 시도 (6초 타임아웃 × 2 = 최대 12초)
+    for (let attempt = 1; attempt <= 2; attempt++) {
         try {
             const serversRes = await callAPI('getServers');
             const servers = (serversRes && serversRes.servers) ? serversRes.servers : [];
 
-            // 원격 서버 목록이 비어있지 않을 때만 캐시 갱신
             if (servers.length > 0) {
-                cachedServerList = servers;
+                cachedServerList = servers; // 성공한 목록만 캐시
             }
 
-            const list = cachedServerList || servers;
-            select.innerHTML = '<option value="">-- 접속할 서버를 선택하세요 --</option>';
-            list.forEach(server => {
-                const opt = document.createElement('option');
-                opt.value = server.id;
-                opt.innerText = `${server.name} (${server.owner})`;
-                select.appendChild(opt);
-            });
-
+            const list = cachedServerList || [];
             if (list.length === 0) {
                 select.innerHTML = '<option value="">⚠️ 서버가 없습니다. 교사에게 문의하세요.</option>';
+            } else {
+                select.innerHTML = '<option value="">-- 접속할 서버를 선택하세요 --</option>';
+                list.forEach(server => {
+                    const opt = document.createElement('option');
+                    opt.value = server.id;
+                    opt.innerText = `${server.name} (${server.owner})`;
+                    select.appendChild(opt);
+                });
             }
             select.disabled = false;
-            return; // 성공 시 즉시 반환
+            return;
         } catch (e) {
-            lastError = e;
-            console.warn(`서버 목록 로드 실패 (시도 ${attempt}/${MAX_RETRIES}):`, e);
-            if (attempt < MAX_RETRIES) {
-                await new Promise(r => setTimeout(r, 1500)); // 1.5초 대기 후 재시도
-            }
+            console.warn(`서버 목록 로드 실패 (시도 ${attempt}/2):`, e);
         }
     }
 
-    // 모든 재시도 실패 시 캐시가 있으면 캐시 사용
-    console.error("서버 목록 로드 최종 실패:", lastError);
+    // 2회 모두 실패
     if (cachedServerList && cachedServerList.length > 0) {
+        // 이전 세션 캐시가 있으면 그걸 사용
         select.innerHTML = '<option value="">-- 접속할 서버를 선택하세요 (캐시) --</option>';
         cachedServerList.forEach(server => {
             const opt = document.createElement('option');
