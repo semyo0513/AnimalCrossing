@@ -80,6 +80,7 @@ let currentServer = null; // 선택된 서버 메타데이터 { id, name, owner 
 let currentUser = null;   // 현재 로그인된 사용자 세션 데이터
 let syncIntervalId = null; // 백그라운드 폴링 타이머 ID
 let lastLocalChangeTime = 0; // 로컬 사용자 상태 변경 타임스탬프 (레이스 컨디션 방지용)
+let cachedServerList = null; // 서버 목록 캐시 (populateServerList와 connect 버튼 간 공유)
 
 // 상점 아이템 데이터베이스 정의
 const SHOP_ITEMS = [
@@ -3628,23 +3629,63 @@ function initMobileControls() {
 async function populateServerList() {
     const select = document.getElementById('server-select');
     if (!select) return;
-    select.innerHTML = '<option value="">-- 접속할 서버를 선택하세요 --</option>';
-    
-    try {
-        const serversRes = await callAPI('getServers');
-        const servers = serversRes.servers || [];
-        servers.forEach(server => {
+    select.innerHTML = '<option value="">⏳ 서버 목록 불러오는 중...</option>';
+    select.disabled = true;
+
+    // 재시도 최대 3회
+    const MAX_RETRIES = 3;
+    let lastError = null;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const serversRes = await callAPI('getServers');
+            const servers = (serversRes && serversRes.servers) ? serversRes.servers : [];
+
+            // 원격 서버 목록이 비어있지 않을 때만 캐시 갱신
+            if (servers.length > 0) {
+                cachedServerList = servers;
+            }
+
+            const list = cachedServerList || servers;
+            select.innerHTML = '<option value="">-- 접속할 서버를 선택하세요 --</option>';
+            list.forEach(server => {
+                const opt = document.createElement('option');
+                opt.value = server.id;
+                opt.innerText = `${server.name} (${server.owner})`;
+                select.appendChild(opt);
+            });
+
+            if (list.length === 0) {
+                select.innerHTML = '<option value="">⚠️ 서버가 없습니다. 교사에게 문의하세요.</option>';
+            }
+            select.disabled = false;
+            return; // 성공 시 즉시 반환
+        } catch (e) {
+            lastError = e;
+            console.warn(`서버 목록 로드 실패 (시도 ${attempt}/${MAX_RETRIES}):`, e);
+            if (attempt < MAX_RETRIES) {
+                await new Promise(r => setTimeout(r, 1500)); // 1.5초 대기 후 재시도
+            }
+        }
+    }
+
+    // 모든 재시도 실패 시 캐시가 있으면 캐시 사용
+    console.error("서버 목록 로드 최종 실패:", lastError);
+    if (cachedServerList && cachedServerList.length > 0) {
+        select.innerHTML = '<option value="">-- 접속할 서버를 선택하세요 (캐시) --</option>';
+        cachedServerList.forEach(server => {
             const opt = document.createElement('option');
             opt.value = server.id;
             opt.innerText = `${server.name} (${server.owner})`;
             select.appendChild(opt);
         });
-    } catch (e) {
-        console.error("Failed to load servers:", e);
+    } else {
+        select.innerHTML = '<option value="">⚠️ 서버 목록 로드 실패. 새로고침 해주세요.</option>';
     }
+    select.disabled = false;
 }
 
 function logoutUserForcefully() {
+    cachedServerList = null; // 로그아웃 시 서버 목록 캐시 초기화 (다음 로그인 시 새로 불러옴)
     currentUser = null;
     currentServer = null;
     cachedUsers = [];
@@ -3886,13 +3927,22 @@ function setupLoginSystem() {
             btn.disabled = true;
             btn.innerText = '접속 중...';
 
-            const serversRes = await callAPI('getServers');
-            const servers = serversRes.servers || [];
-            const server = servers.find(s => s.id === serverId);
+            // 캐시된 서버 목록에서 먼저 검색 (추가 API 호출 방지)
+            let server = cachedServerList ? cachedServerList.find(s => s.id === serverId) : null;
+
+            // 캐시에 없으면 원격에서 다시 조회
             if (!server) {
-                alert('존재하지 않는 서버입니다.');
+                const serversRes = await callAPI('getServers');
+                const servers = (serversRes && serversRes.servers) ? serversRes.servers : [];
+                if (servers.length > 0) cachedServerList = servers;
+                server = servers.find(s => s.id === serverId);
+            }
+
+            if (!server) {
+                alert('존재하지 않는 서버입니다. 서버 목록을 다시 불러옵니다.');
                 btn.disabled = false;
                 btn.innerText = originalText;
+                await populateServerList(); // 서버 목록 갱신
                 return;
             }
 
