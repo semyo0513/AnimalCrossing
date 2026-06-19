@@ -323,7 +323,7 @@ function handleLocalAPIFallback(action, data) {
 async function callAPI(action, data = {}) {
     const payload = { action, data };
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 3000); // 3-second timeout
+    const id = setTimeout(() => controller.abort(), 10000); // 10-second timeout
 
     try {
         const response = await fetch(GAS_URL, {
